@@ -25,11 +25,11 @@ async def on_message(message):
   if client.user.mentioned_in(message) and message.author not in blocked_users and message.content.lower().find('bobbyb') != -1:
         print("Replied to message of user '{}' in guild '{}' / channel '{}'".format(message.author, message.guild, message.channel))
         msg = get_random_quote('./bobbyBquotes.json').format(message)
-        await message.channel.send("BobbyB Says: " + msg)
+        await message.channel.send("BobbyB: " + msg)
   if client.user.mentioned_in(message) and message.author not in blocked_users and message.content.lower().find('gandalf') != -1:
         print("Replied to message of user '{}' in guild '{}' / channel '{}'".format(message.author, message.guild, message.channel))
         msg = get_random_quote('./gandalfQuotes.json').format(message)
-        await message.channel.send("Gandalf Says: " + msg)
+        await message.channel.send("Gandalf: " + msg)
 
 client.run(os.environ['TOKEN'])
 
