@@ -3,6 +3,8 @@ import os
 import json
 import random
 
+from keep_alive import keep_alive
+
 client = discord.Client()
 
 @client.event
@@ -31,6 +33,26 @@ async def on_message(message):
         msg = get_random_quote('./gandalfQuotes.json').format(message)
         await message.channel.send("Gandalf: " + msg)
 
+# @client.command()
+async def getmsg(ctx, msgID: int):
+  return await ctx.fetch_message(msgID)
+
+@client.event
+async def on_raw_reaction_add(payload):  
+  guild = client.get_guild(payload.guild_id)
+  channel = guild.get_channel(payload.channel_id)
+  message = await channel.fetch_message(payload.message_id)
+
+  if (payload.emoji.name == "ringwhispers"):    
+    await message.reply("Gandalf: Keep it secret, Keep it safe.")
+  
+  if (payload.emoji.name == "bobbyb"):    
+    await message.reply("BobbyB: " + get_random_quote('./bobbyBquotes.json').format(message))
+  
+  if (payload.emoji.name == "gandalf"):    
+    await message.reply("Gandalf: " + get_random_quote('./gandalfQuotes.json').format(message))
+
+keep_alive()
 client.run(os.environ['TOKEN'])
 
 
