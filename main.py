@@ -2,10 +2,14 @@ import discord
 import os
 import json
 import random
+import requests
 
 from keep_alive import keep_alive
 
 client = discord.Client()
+
+# for emoji in client.guild.emojis:
+#   print(emoji.id)
 
 @client.event
 async def on_ready():
@@ -24,14 +28,26 @@ async def on_message(message):
   # Do not reply to comments from these users, including itself (client.user)
   blocked_users = [ client.user ]
 
-  if client.user.mentioned_in(message) and message.author not in blocked_users and message.content.lower().find('bobbyb') != -1:
-        print("Replied to message of user '{}' in guild '{}' / channel '{}'".format(message.author, message.guild, message.channel))
-        msg = get_random_quote('./bobbyBquotes.json').format(message)
-        await message.channel.send("BobbyB: " + msg)
-  if client.user.mentioned_in(message) and message.author not in blocked_users and message.content.lower().find('gandalf') != -1:
-        print("Replied to message of user '{}' in guild '{}' / channel '{}'".format(message.author, message.guild, message.channel))
-        msg = get_random_quote('./gandalfQuotes.json').format(message)
-        await message.channel.send("Gandalf: " + msg)
+  if message.author in blocked_users:
+    return
+
+  if client.user.mentioned_in(message):
+    if message.content.lower().find('bobbyb') != -1:
+      print("Replied to message of user '{}' in guild '{}' / channel '{}'".format(message.author, message.guild, message.channel))
+      msg = get_random_quote('./bobbyBquotes.json').format(message)
+      await message.channel.send(str(client.get_emoji(917134295225741313)) + " BobbyB: " + msg)
+
+    if message.content.lower().find('gandalf') != -1:
+      print("Replied to message of user '{}' in guild '{}' / channel '{}'".format(message.author, message.guild, message.channel))
+      msg = get_random_quote('./gandalfQuotes.json').format(message)
+      await message.channel.send(str(client.get_emoji(917135652171161681)) + " Gandalf: " + msg)
+    
+    if message.content.lower().find('pokemon') != -1:
+      r = requests.get("https://pokeapi.co/api/v2/pokemon/" + str(random.randrange(1, 151))) 
+      pokemon = r.json()
+      embed = discord.Embed(title=f"A wild {pokemon['name']} appears!")
+      embed.set_thumbnail(url=pokemon['sprites']['front_default'])  
+      await message.channel.send(embed=embed)
 
 # @client.command()
 async def getmsg(ctx, msgID: int):
@@ -44,13 +60,16 @@ async def on_raw_reaction_add(payload):
   message = await channel.fetch_message(payload.message_id)
 
   if (payload.emoji.name == "ringwhispers"):    
-    await message.reply("Gandalf: Keep it secret, Keep it safe.")
+    await message.reply(str(client.get_emoji(917135652171161681)) + " Gandalf: Keep it secret, Keep it safe.")
   
+  # :bobbyb:917134295225741313
   if (payload.emoji.name == "bobbyb"):    
-    await message.reply("BobbyB: " + get_random_quote('./bobbyBquotes.json').format(message))
+    await message.reply(str(payload.emoji) + " BobbyB: " + get_random_quote('./bobbyBquotes.json').format(message))    
   
+  # :gandalf:917135652171161681
   if (payload.emoji.name == "gandalf"):    
-    await message.reply("Gandalf: " + get_random_quote('./gandalfQuotes.json').format(message))
+    await message.reply(str(payload.emoji) + " Gandalf: " + get_random_quote('./gandalfQuotes.json').format(message))
+    print(f"gandalf emoji_id: {str(payload.emoji)}")
 
 keep_alive()
 client.run(os.environ['TOKEN'])
