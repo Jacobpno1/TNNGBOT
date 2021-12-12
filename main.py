@@ -53,14 +53,19 @@ async def on_message(message):
 async def getmsg(ctx, msgID: int):
   return await ctx.fetch_message(msgID)
 
+def sarcasm(char):  
+  if bool(random.getrandbits(1)):
+    char = char.capitalize()
+  return char
+
 @client.event
 async def on_raw_reaction_add(payload):  
   guild = client.get_guild(payload.guild_id)
   channel = guild.get_channel(payload.channel_id)
   message = await channel.fetch_message(payload.message_id)
 
-  if (payload.emoji.name == "ringwhispers"):    
-    await message.reply(str(client.get_emoji(917135652171161681)) + " Gandalf: Keep it secret, Keep it safe.")
+  # if (payload.emoji.name == "ringwhispers"):    
+  #   await message.reply(str(client.get_emoji(917135652171161681)) + " Gandalf: Keep it secret, Keep it safe.")
   
   # :bobbyb:917134295225741313
   if (payload.emoji.name == "bobbyb"):    
@@ -69,7 +74,13 @@ async def on_raw_reaction_add(payload):
   # :gandalf:917135652171161681
   if (payload.emoji.name == "gandalf"):    
     await message.reply(str(payload.emoji) + " Gandalf: " + get_random_quote('./gandalfQuotes.json').format(message))
-    print(f"gandalf emoji_id: {str(payload.emoji)}")
+    # print(f"gandalf emoji_id: {str(payload.emoji)}")
+  
+  if (payload.emoji.name == "sarcasm"):
+    lst = []
+    lst.extend(message.content)
+    newstr = ''.join(list(map(sarcasm, lst)))
+    await message.reply(newstr + " " + str(payload.emoji))
 
 keep_alive()
 client.run(os.environ['TOKEN'])
