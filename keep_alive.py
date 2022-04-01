@@ -60,7 +60,7 @@ def interactions():
     # /SARCASM
     elif request.json['data']['name'] == "sarcasm":
       lst = []      
-      lst.extend(request.json['data']['options'][0]['value'])
+      lst.extend(request.json['data']['options'][0]['value'].lower())
       def sarcasm(char):  
         if bool(random.getrandbits(1)):
           char = char.capitalize()

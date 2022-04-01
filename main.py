@@ -3,6 +3,7 @@ import os
 import json
 import random
 import requests
+import mongoDBAPI
 
 from keep_alive import keep_alive
 
@@ -48,6 +49,8 @@ async def on_message(message):
       embed = discord.Embed(title=f"A wild {pokemon['name']} appears!")
       embed.set_thumbnail(url=pokemon['sprites']['front_default'])  
       await message.channel.send(embed=embed)
+  
+  await mongoDBAPI.insertMessage("Messages", "TNNGBOT", "JacobTEST", message)
 
 # @client.command()
 async def getmsg(ctx, msgID: int):
@@ -63,6 +66,7 @@ async def on_raw_reaction_add(payload):
   guild = client.get_guild(payload.guild_id)
   channel = guild.get_channel(payload.channel_id)
   message = await channel.fetch_message(payload.message_id)
+  user = await client.fetch_user(payload.user_id)
 
   # if (payload.emoji.name == "ringwhispers"):    
   #   await message.reply(str(client.get_emoji(917135652171161681)) + " Gandalf: Keep it secret, Keep it safe.")
@@ -75,12 +79,22 @@ async def on_raw_reaction_add(payload):
   if (payload.emoji.name == "gandalf"):    
     await message.reply(str(payload.emoji) + " Gandalf: " + get_random_quote('./gandalfQuotes.json').format(message))
     # print(f"gandalf emoji_id: {str(payload.emoji)}")
+    
+  if (payload.emoji.name == "laszlo"):    
+    await message.reply(str(payload.emoji) + " Laszlo: " + get_random_quote('./laszloQuotes.json').format(message))
   
   if (payload.emoji.name == "sarcasm"):
     lst = []
-    lst.extend(message.content)
+    lst.extend(message.content.lower())
     newstr = ''.join(list(map(sarcasm, lst)))
     await message.reply(newstr + " " + str(payload.emoji))
+  
+  await mongoDBAPI.addReaction("Messages", "TNNGBOT", "JacobTEST", payload, user)
+
+@client.event
+async def on_raw_reaction_remove(payload):      
+  user = await client.fetch_user(payload.user_id)
+  await mongoDBAPI.removeReaction("Messages", "TNNGBOT", "JacobTEST", payload, user)
 
 keep_alive()
 client.run(os.environ['TOKEN'])
