@@ -1,6 +1,8 @@
 import os
 import requests
 import json
+from dotenv import load_dotenv
+load_dotenv()
 
 BASEURL = "https://data.mongodb-api.com/app/data-oisse/endpoint/data/beta/action/"
 HEADERS = {

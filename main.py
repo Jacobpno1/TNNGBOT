@@ -4,8 +4,10 @@ import json
 import random
 import requests
 import mongoDBAPI
-
+from dotenv import load_dotenv
 from keep_alive import keep_alive
+
+load_dotenv()
 
 client = discord.Client()
 
