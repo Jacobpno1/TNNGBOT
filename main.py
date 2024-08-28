@@ -40,6 +40,11 @@ async def on_message(message):
       msg = get_random_quote('./bobbyBquotes.json').format(message)
       await message.channel.send(str(client.get_emoji(917134295225741313)) + " BobbyB: " + msg)
 
+    if message.content.lower().find('machoman') != -1:
+      print("Replied to message of user '{}' in guild '{}' / channel '{}'".format(message.author, message.guild, message.channel))
+      msg = get_random_quote('./machoManQuotes.json').format(message)
+      await message.channel.send(str(client.get_emoji(917134295225741313)) + " Macho Man: " + msg)
+
     if message.content.lower().find('gandalf') != -1:
       print("Replied to message of user '{}' in guild '{}' / channel '{}'".format(message.author, message.guild, message.channel))
       msg = get_random_quote('./gandalfQuotes.json').format(message)
@@ -84,6 +89,9 @@ async def on_raw_reaction_add(payload):
     
   if (payload.emoji.name == "laszlo"):    
     await message.reply(str(payload.emoji) + " Laszlo: " + get_random_quote('./laszloQuotes.json').format(message))
+
+  if (payload.emoji.name == "machoman"):    
+    await message.reply(str(payload.emoji) + " Macho Man: " + get_random_quote('./machoManQuotes.json').format(message))
   
   if (payload.emoji.name == "sarcasm"):
     lst = []
