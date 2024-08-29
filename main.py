@@ -43,7 +43,7 @@ async def on_message(message):
     if message.content.lower().find('machoman') != -1:
       print("Replied to message of user '{}' in guild '{}' / channel '{}'".format(message.author, message.guild, message.channel))
       msg = get_random_quote('./machoManQuotes.json').format(message)
-      await message.channel.send(str(client.get_emoji(917134295225741313)) + " Macho Man: " + msg)
+      await message.channel.send(str(client.get_emoji(1278457600404623401)) + " Macho Man: " + msg)
 
     if message.content.lower().find('gandalf') != -1:
       print("Replied to message of user '{}' in guild '{}' / channel '{}'".format(message.author, message.guild, message.channel))
