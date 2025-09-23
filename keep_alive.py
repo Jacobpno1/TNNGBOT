@@ -6,7 +6,8 @@ import discord
 
 app = Flask('')
 
-client = discord.Client()
+intents = discord.Intents.default()
+client = discord.Client(intents=intents)
 
 @app.route('/')
 def home():
