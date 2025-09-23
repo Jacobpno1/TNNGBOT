@@ -59,24 +59,28 @@ async def on_message(message):
       msg = get_random_quote('./gandalfQuotes.json').format(message)
       await message.channel.send(str(client.get_emoji(917135652171161681)) + " Gandalf: " + msg)
 
-  if random.randrange(1, 100) == 1:
+  if random.randrange(1, 30) == 1:
     await spawnPokemon(message)     
 
   await mongoDBAPI.insertMessage("Messages", "TNNGBOT", "JacobTEST", message)
 
 async def spawnPokemon(message, pokemon_number=None):
-    if pokemon_number is None:
-      pokeNo = random.randrange(1, 150)
-    else:
-      pokeNo = pokemon_number
-    r = requests.get("https://pokeapi.co/api/v2/pokemon/" + str(pokeNo)) 
-    pokemon = r.json()
-    embed = discord.Embed(title=f"A wild {pokemon['name']} appears! [{pokeNo}]")
-    embed.set_thumbnail(url=pokemon['sprites']['front_default'])  
-    embed.set_footer(text=f"{pokeNo}")
-    channel = discord.utils.get(message.guild.channels, name="tall-grass")
-    new_message = await channel.send(embed=embed)
-    await mongoDBAPI.createPokemon("Pokemon", "TNNGBOT", "JacobTEST", pokeNo, pokemon, new_message.id)
+  if pokemon_number is None:
+    pokePool: list[int] = []
+    with open('./pokemonPool.json', 'r') as pokePoolJson:
+      pokePool = json.load(pokePoolJson)
+    poolNo = random.randrange(0, len(pokePool))
+    pokeNo = pokePool[poolNo]
+  else:
+    pokeNo = pokemon_number
+  r = requests.get("https://pokeapi.co/api/v2/pokemon/" + str(pokeNo)) 
+  pokemon = r.json()
+  embed = discord.Embed(title=f"A wild {pokemon['name']} appears! [{pokeNo}]")
+  embed.set_thumbnail(url=pokemon['sprites']['front_default'])  
+  embed.set_footer(text=f"{pokeNo}")
+  channel = discord.utils.get(message.guild.channels, name="tall-grass")
+  new_message = await channel.send(embed=embed)
+  await mongoDBAPI.createPokemon("Pokemon", "TNNGBOT", "JacobTEST", pokeNo, pokemon, new_message.id)
 
 # @client.command()
 async def getmsg(ctx, msgID: int):
