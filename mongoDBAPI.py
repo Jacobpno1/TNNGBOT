@@ -2,6 +2,7 @@ import os
 import requests
 import json
 from dotenv import load_dotenv
+from datetime import datetime
 load_dotenv()
 
 BASEURL = "https://data.mongodb-api.com/app/data-oisse/endpoint/data/beta/action/"
@@ -116,4 +117,89 @@ async def removeReaction(collection, database, datasource, reaction_payload, use
     print (response.text)   
   else: 
     print("Cannot remove reaction: Message or Reactions Not found.")
+  
+async def createPokemon(collection, database, datasource, number, pokemon, message_id):  
+  document = {
+    "number": number,
+    "name": pokemon['name'],
+    "image_url": pokemon['sprites']['front_default'],
+    "message_id": message_id,
+    "caught": False,
+    "caught_by": None,
+    "created_at": datetime.now().isoformat()
+  }
+  
+  url = BASEURL + "insertOne"
+  payload = json.dumps({
+    "collection": collection,
+    "database": database,
+    "dataSource": datasource,
+    "document": document
+  }, indent=4, sort_keys=True, default=str)
+  response = requests.request("POST", url, headers=HEADERS, data=payload)
+  print("inserted Pokemon:", response.text)
     
+async def catchPokemon(collection, database, datasource, message_id, number, user):
+  url = BASEURL + "findOne"
+  payload = json.dumps({
+    "collection": collection,
+    "database": database,
+    "dataSource": datasource,
+    "filter": { "message_id": message_id, "number": number },
+  }, indent=4, sort_keys=True, default=str)
+  
+  pokemon = requests.request("POST", url, headers=HEADERS, data=payload).json()
+  
+  if pokemon['document'] is not None and not pokemon['document']['caught']: 
+    payload = json.dumps({
+      "collection": collection,
+      "database": database,
+      "dataSource": datasource,
+      "filter": { "message_id": message_id, "number": number },
+      "update": {
+        "$set" : {
+          "caught" : True,
+          "caught_by" : user.id,                      
+          "caught_at": datetime.now().isoformat()
+        }
+      }
+    }, indent=4, sort_keys=True, default=str)
+    
+    url = BASEURL + "updateOne"
+    response = requests.request("POST", url, headers=HEADERS, data=payload)
+    print (response.text)
+    return pokemon['document']['name']
+  else:
+    print("No Pokemon Found or Already Caught")
+    return False
+  
+async def getMyCaughtPokemon(collection, database, datasource, user):
+  url = BASEURL + "find"
+  payload = json.dumps({
+    "collection": collection,
+    "database": database,
+    "dataSource": datasource,
+    "filter": { "caught_by": user.id },
+  }, indent=4, sort_keys=True, default=str)
+  caught_pokemon = requests.request("POST", url, headers=HEADERS, data=payload).json()
+  if caught_pokemon['documents'] is not None and len(caught_pokemon['documents']) > 0:
+    return caught_pokemon['documents']
+  else:
+    return False
+  
+async def getPokemon(collection, database, datasource, user, number):
+  url = BASEURL + "findOne"
+  payload = json.dumps({
+    "collection": collection,
+    "database": database,
+    "dataSource": datasource,
+    "filter": { "number": number, "caught_by": user.id },
+  }, indent=4, sort_keys=True, default=str)
+  
+  pokemon = requests.request("POST", url, headers=HEADERS, data=payload).json()
+  
+  if pokemon['document'] is not None and pokemon['document']['caught']: 
+    return pokemon['document']
+  else:
+    print("No Caught Pokemon Found")
+    return False
