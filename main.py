@@ -59,7 +59,7 @@ async def on_message(message):
       msg = get_random_quote('./gandalfQuotes.json').format(message)
       await message.channel.send(str(client.get_emoji(917135652171161681)) + " Gandalf: " + msg)
 
-  if random.randrange(1, 30) == 1:
+  if random.randrange(1, 50) == 1:
     await spawnPokemon(message)     
 
   await mongoDBAPI.insertMessage("Messages", "TNNGBOT", "JacobTEST", message)
