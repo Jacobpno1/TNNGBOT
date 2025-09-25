@@ -128,7 +128,8 @@ async def createPokemon(collection, database, datasource, number, pokemon, messa
     "catch_attempts": [],
     "caught": False,
     "caught_by": None,
-    "created_at": datetime.now().isoformat()
+    "created_at": datetime.now().isoformat(),
+    "_v": 0
   }
   
   url = BASEURL + "insertOne"
