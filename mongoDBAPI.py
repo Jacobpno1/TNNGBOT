@@ -174,45 +174,55 @@ async def getPokemonByMessageID(collection, database, datasource, message_id):
     print("No Pokemon Found")
     return False
 
-async def addCatchAttempt(collection, database, datasource, message_id, user, catch_attempts):  
+async def addCatchAttempt(collection, database, datasource, message_id, user, pokemon):  
+  catch_attempts = pokemon["catch_attempts"]
   catch_attempts.append(str(user.id))
 
   payload = json.dumps({
     "collection": collection,
     "database": database,
     "dataSource": datasource,
-    "filter": { "message_id": message_id},
+    "filter": { "message_id": message_id, "_v": pokemon["_v"] },
     "update": {
       "$set" : {
-        "catch_attempts" : catch_attempts 
+        "catch_attempts" : catch_attempts,
+        "_v": pokemon["_v"] + 1
       }
     }
   }, indent=4, sort_keys=True, default=str)
   url = BASEURL + "updateOne"
   response = requests.request("POST", url, headers=HEADERS, data=payload)
-  print (response.text)
-  return True
+  result = response.json()  
+  if result.get("matchedCount", 0) == 1:
+    return True
+  else:
+    return False
 
-async def catchPokemon(collection, database, datasource, message_id, number, user):
+async def catchPokemon(collection, database, datasource, message_id, pokemon, user):
   url = BASEURL + "findOne"   
+  number = pokemon["number"]
   payload = json.dumps({
     "collection": collection,
     "database": database,
     "dataSource": datasource,
-    "filter": { "message_id": message_id, "number": number },
+    "filter": { "message_id": message_id, "_v": pokemon["_v"] },
     "update": {
       "$set" : {
         "caught" : True,
         "caught_by" : user.id,                      
-        "caught_at": datetime.now().isoformat()
+        "caught_at": datetime.now().isoformat(),
+        "_v": pokemon["_v"] + 1
       }
     }
   }, indent=4, sort_keys=True, default=str)
   
   url = BASEURL + "updateOne"
   response = requests.request("POST", url, headers=HEADERS, data=payload)
-  print (response.text)
-  return True
+  result = response.json()
+  if result.get("matchedCount", 0) == 1:
+    return True
+  else:
+    return False
   
 async def getMyCaughtPokemon(collection, database, datasource, user):
   url = BASEURL + "find"

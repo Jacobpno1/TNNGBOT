@@ -124,28 +124,38 @@ async def on_raw_reaction_add(payload):
     await message.reply(newstr + " " + str(payload.emoji))
 
   if (payload.emoji.name == "pokeball"):    
+    await throw_pokeball(payload, user) 
+             
+  
+  await mongoDBAPI.addReaction("Messages", "TNNGBOT", "JacobTEST", payload, user)
+
+async def throw_pokeball(payload, user):
     guild = client.get_guild(payload.guild_id)
     channel = guild.get_channel(payload.channel_id)    
     message = await channel.fetch_message(payload.message_id)      
     if (len(message.embeds) != 0 and message.embeds[0] is not None and message.embeds[0].footer.text is not None):
-      pokeNo = int(message.embeds[0].footer.text)
+      # pokeNo = int(message.embeds[0].footer.text)
       pokemon = await mongoDBAPI.getPokemonByMessageID("Pokemon", "TNNGBOT", "JacobTEST", message.id)
-      userHasPokemon = await mongoDBAPI.userHasPokemon("Pokemon", "TNNGBOT", "JacobTEST", user.id, pokeNo)
+      # userHasPokemon = await mongoDBAPI.userHasPokemon("Pokemon", "TNNGBOT", "JacobTEST", user.id, pokeNo)
       hasUserAttempted = str(user.id) in pokemon["catch_attempts"]
       catchable = pokemon["caught"] is False and len(pokemon["catch_attempts"]) >= pokemon["catch_count"]
-      if userHasPokemon is False and hasUserAttempted is False:
+      if hasUserAttempted is False:
         if catchable is True:
           # Catch the Pokemon
-          caught_pokemon = await mongoDBAPI.catchPokemon("Pokemon", "TNNGBOT", "JacobTEST", message.id, pokeNo, user)
-          message.embeds[0].add_field(name=f"{str(payload.emoji)} Gotcha! {pokemon['name'].capitalize()} was caught by {user.display_name}!", 
-                                      value="Use /pokedex to see all the Pokemon you've caught and /pokemon to summon them!", inline=False)
+          success = await mongoDBAPI.catchPokemon("Pokemon", "TNNGBOT", "JacobTEST", message.id, pokemon, user)
+          if success is True:
+            message.embeds[0].add_field(name=f"{str(payload.emoji)} Gotcha! {pokemon['name'].capitalize()} was caught by {user.display_name}!", 
+              value="Use /pokedex to see all the Pokemon you've caught and /pokemon to summon them!", inline=False)   
+          else :
+            await throw_pokeball(payload, user);       
         else:
           # Track the failed attempt
-          await mongoDBAPI.addCatchAttempt("Pokemon", "TNNGBOT", "JacobTEST", message.id, user, pokemon["catch_attempts"])
-          message.embeds[0].add_field(name=f"Oh no {user.display_name}! {pokemon['name'].capitalize()} broke free!", value="", inline=False)
-        await message.edit(embed=message.embeds[0]) 
-  
-  await mongoDBAPI.addReaction("Messages", "TNNGBOT", "JacobTEST", payload, user)
+          success = await mongoDBAPI.addCatchAttempt("Pokemon", "TNNGBOT", "JacobTEST", message.id, user, pokemon)
+          if success is True:
+            message.embeds[0].add_field(name=f"Oh no {user.display_name}! {pokemon['name'].capitalize()} broke free!", value="", inline=False)
+          else:
+            await throw_pokeball(payload, user);          
+        await message.edit(embed=message.embeds[0])
 
 @client.event
 async def on_raw_reaction_remove(payload):      
