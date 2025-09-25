@@ -137,13 +137,13 @@ async def on_raw_reaction_add(payload):
         if catchable is True:
           # Catch the Pokemon
           caught_pokemon = await mongoDBAPI.catchPokemon("Pokemon", "TNNGBOT", "JacobTEST", message.id, pokeNo, user)
-          message.embeds[0].add_field(name=f"{str(payload.emoji)} Gotcha! {pokemon["name"].capitalize()} was caught by {user.display_name}!", 
+          message.embeds[0].add_field(name=f"{str(payload.emoji)} Gotcha! {pokemon['name'].capitalize()} was caught by {user.display_name}!", 
                                       value="Use /pokedex to see all the Pokemon you've caught and /pokemon to summon them!", inline=False)
         else:
           # Track the failed attempt
           await mongoDBAPI.addCatchAttempt("Pokemon", "TNNGBOT", "JacobTEST", message.id, user, pokemon["catch_attempts"])
-          message.embeds[0].add_field(name=f"Oh no {user.display_name}! {pokemon["name"].capitalize()} broke free!", value="")
-        await message.edit(embed=message.embeds[0])  
+          message.embeds[0].add_field(name=f"Oh no {user.display_name}! {pokemon['name'].capitalize()} broke free!", value="")
+        await message.edit(embed=message.embeds[0]) 
   
   await mongoDBAPI.addReaction("Messages", "TNNGBOT", "JacobTEST", payload, user)
 
