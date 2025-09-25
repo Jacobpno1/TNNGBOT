@@ -80,7 +80,7 @@ async def spawnPokemon(message, pokemon_number=None, catch_count=None):
   embed.set_footer(text=f"{pokeNo}")
   channel = discord.utils.get(message.guild.channels, name="tall-grass")
   new_message = await channel.send(embed=embed)
-  catch_count = catch_count if catch_count is not None else random.randint(0, 3)
+  catch_count = catch_count if catch_count is not None else random.randint(0, 2)
   await mongoDBAPI.createPokemon("Pokemon", "TNNGBOT", "JacobTEST", pokeNo, pokemon, new_message.id, catch_count)
 
 # @client.command()
@@ -142,7 +142,7 @@ async def on_raw_reaction_add(payload):
         else:
           # Track the failed attempt
           await mongoDBAPI.addCatchAttempt("Pokemon", "TNNGBOT", "JacobTEST", message.id, user, pokemon["catch_attempts"])
-          message.embeds[0].add_field(name=f"Oh no {user.display_name}! {pokemon['name'].capitalize()} broke free!", value="")
+          message.embeds[0].add_field(name=f"Oh no {user.display_name}! {pokemon['name'].capitalize()} broke free!", value="", inline=False)
         await message.edit(embed=message.embeds[0]) 
   
   await mongoDBAPI.addReaction("Messages", "TNNGBOT", "JacobTEST", payload, user)
