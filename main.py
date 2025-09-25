@@ -64,7 +64,7 @@ async def on_message(message):
 
   await mongoDBAPI.insertMessage("Messages", "TNNGBOT", "JacobTEST", message)
 
-async def spawnPokemon(message, pokemon_number=None):
+async def spawnPokemon(message, pokemon_number=None, catch_count=None):
   if pokemon_number is None:
     pokePool: list[int] = []
     with open('./pokemonPool.json', 'r') as pokePoolJson:
@@ -80,7 +80,8 @@ async def spawnPokemon(message, pokemon_number=None):
   embed.set_footer(text=f"{pokeNo}")
   channel = discord.utils.get(message.guild.channels, name="tall-grass")
   new_message = await channel.send(embed=embed)
-  await mongoDBAPI.createPokemon("Pokemon", "TNNGBOT", "JacobTEST", pokeNo, pokemon, new_message.id)
+  catch_count = catch_count if catch_count is not None else random.randint(0, 3)
+  await mongoDBAPI.createPokemon("Pokemon", "TNNGBOT", "JacobTEST", pokeNo, pokemon, new_message.id, catch_count)
 
 # @client.command()
 async def getmsg(ctx, msgID: int):
@@ -125,15 +126,24 @@ async def on_raw_reaction_add(payload):
   if (payload.emoji.name == "pokeball"):    
     guild = client.get_guild(payload.guild_id)
     channel = guild.get_channel(payload.channel_id)    
-    message = await channel.fetch_message(payload.message_id)    
+    message = await channel.fetch_message(payload.message_id)      
     if (len(message.embeds) != 0 and message.embeds[0] is not None and message.embeds[0].footer.text is not None):
       pokeNo = int(message.embeds[0].footer.text)
-      caught_pokemon = await mongoDBAPI.catchPokemon("Pokemon", "TNNGBOT", "JacobTEST", message.id, pokeNo, user)
-      if caught_pokemon is not False:
-        # await message.reply(str(payload.emoji) + f" Gotcha! {caught_pokemon.capitalize()} was caught by {user.display_name}!")
-        message.embeds[0].add_field(name=f"{str(payload.emoji)} Gotcha! {caught_pokemon.capitalize()} was caught by {user.display_name}!", value="Use /pokedex to see all the Pokemon you've caught and /pokemon to summon them!", inline=False)
-        # message.embeds[0].set_footer(text=f"Use /pokedex to see all the Pokemon you've caught and /pokemon to summon them!")
-        await message.edit(embed=message.embeds[0])    
+      pokemon = await mongoDBAPI.getPokemonByMessageID("Pokemon", "TNNGBOT", "JacobTEST", message.id)
+      userHasPokemon = await mongoDBAPI.userHasPokemon("Pokemon", "TNNGBOT", "JacobTEST", user.id, pokeNo)
+      hasUserAttempted = str(user.id) in pokemon["catch_attempts"]
+      catchable = pokemon["caught"] is False and len(pokemon["catch_attempts"]) >= pokemon["catch_count"]
+      if userHasPokemon is False and hasUserAttempted is False:
+        if catchable is True:
+          # Catch the Pokemon
+          caught_pokemon = await mongoDBAPI.catchPokemon("Pokemon", "TNNGBOT", "JacobTEST", message.id, pokeNo, user)
+          message.embeds[0].add_field(name=f"{str(payload.emoji)} Gotcha! {pokemon["name"].capitalize()} was caught by {user.display_name}!", 
+                                      value="Use /pokedex to see all the Pokemon you've caught and /pokemon to summon them!", inline=False)
+        else:
+          # Track the failed attempt
+          await mongoDBAPI.addCatchAttempt("Pokemon", "TNNGBOT", "JacobTEST", message.id, user, pokemon["catch_attempts"])
+          message.embeds[0].add_field(name=f"Oh no {user.display_name}! {pokemon["name"].capitalize()} broke free!", value="")
+        await message.edit(embed=message.embeds[0])  
   
   await mongoDBAPI.addReaction("Messages", "TNNGBOT", "JacobTEST", payload, user)
 
@@ -166,10 +176,10 @@ async def pokedex(interaction: discord.Interaction, pokemon_number: str):
     await interaction.response.send_message("You haven't caught that pokemon.", ephemeral=True) 
 
 @client.tree.command(name="spawn_pokemon", description="[Admin Only] Spawn a pokemon by number")
-@app_commands.describe(pokemon_number="The number of the Pokemon you want to spawn (1-151)")
-async def spawn_pokemon(interaction: discord.Interaction, pokemon_number: str):    
+@app_commands.describe(pokemon_number="The number of the Pokemon you want to spawn (1-151)", catch_count="How many attempts before catching")
+async def spawn_pokemon(interaction: discord.Interaction, pokemon_number: str, catch_count: str):    
   if interaction.user.guild_permissions.administrator:
-    await spawnPokemon(interaction, int(pokemon_number))
+    await spawnPokemon(interaction, int(pokemon_number), catch_count=int(catch_count))
     await interaction.response.send_message(f"Spawned pokemon number {pokemon_number}!", ephemeral=True) 
   else:
     await interaction.response.send_message("You do not have permission to use this command.", ephemeral=True)
