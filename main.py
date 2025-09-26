@@ -81,7 +81,7 @@ async def spawnPokemon(message, pokemon_number=None, catch_count=None):
   channel = discord.utils.get(message.guild.channels, name="tall-grass")
   new_message = await channel.send(embed=embed)
   catch_count = catch_count if catch_count is not None else random.randint(0, 2)
-  await mongoDBAPI.createPokemon("Pokemon", "TNNGBOT", "JacobTEST", pokeNo, pokemon, new_message.id, catch_count)
+  await mongoDBAPI.createPokemon("Pokemon", "TNNGBOT", "JacobTEST", pokeNo, pokemon, str(new_message.id), catch_count)
 
 # @client.command()
 async def getmsg(ctx, msgID: int):
