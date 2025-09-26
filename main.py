@@ -135,28 +135,34 @@ async def throw_pokeball(payload, user):
     message = await channel.fetch_message(payload.message_id)      
     if (len(message.embeds) != 0 and message.embeds[0] is not None and message.embeds[0].footer.text is not None):
       # pokeNo = int(message.embeds[0].footer.text)
-      pokemon = await mongoDBAPI.getPokemonByMessageID("Pokemon", "TNNGBOT", "JacobTEST", message.id)
-      # userHasPokemon = await mongoDBAPI.userHasPokemon("Pokemon", "TNNGBOT", "JacobTEST", user.id, pokeNo)
-      hasUserAttempted = str(user.id) in pokemon["catch_attempts"]
-      catchable = pokemon["caught"] is False and len(pokemon["catch_attempts"]) >= pokemon["catch_count"]
-      if hasUserAttempted is False & pokemon["caught"] is False:
-        if catchable is True:
-          # Catch the Pokemon
-          success = await mongoDBAPI.catchPokemon("Pokemon", "TNNGBOT", "JacobTEST", message.id, pokemon, user)
-          if success is True:
-            message.embeds[0].add_field(name=f"{str(payload.emoji)} Gotcha! {pokemon['name'].capitalize()} was caught by {user.display_name}!", 
-              value="Use /pokedex to see all the Pokemon you've caught and /pokemon to summon them!", inline=False)  
-            await message.edit(embed=message.embeds[0]) 
-          else :
-            await throw_pokeball(payload, user);       
-        else:
-          # Track the failed attempt
-          success = await mongoDBAPI.addCatchAttempt("Pokemon", "TNNGBOT", "JacobTEST", message.id, user, pokemon)
-          if success is True:
-            message.embeds[0].add_field(name=f"Oh no {user.display_name}! {pokemon['name'].capitalize()} broke free!", value="", inline=False)
-            await message.edit(embed=message.embeds[0])
+      try:
+        pokemon = await mongoDBAPI.getPokemonByMessageID("Pokemon", "TNNGBOT", "JacobTEST", str(message.id))
+        if pokemon is None:
+          print("No pokemon found for message ID " + str(message.id))
+          return        
+        hasUserAttempted = str(user.id) in pokemon["catch_attempts"]
+        catchable = len(pokemon["catch_attempts"]) >= pokemon["catch_count"]
+      
+        if hasUserAttempted is False and pokemon["caught"] is False:
+          if catchable is True:
+            # Catch the Pokemon
+            success = await mongoDBAPI.catchPokemon("Pokemon", "TNNGBOT", "JacobTEST", str(message.id), pokemon, user)
+            if success is True:
+              message.embeds[0].add_field(name=f"{str(payload.emoji)} Gotcha! {pokemon['name'].capitalize()} was caught by {user.display_name}!", 
+                value="Use /pokedex to see all the Pokemon you've caught and /pokemon to summon them!", inline=False)  
+              await message.edit(embed=message.embeds[0]) 
+            else :
+              await throw_pokeball(payload, user);       
           else:
-            await throw_pokeball(payload, user);          
+            # Track the failed attempt
+            success = await mongoDBAPI.addCatchAttempt("Pokemon", "TNNGBOT", "JacobTEST", str(message.id), user, pokemon)
+            if success is True:
+              message.embeds[0].add_field(name=f"Oh no {user.display_name}! {pokemon['name'].capitalize()} broke free!", value="", inline=False)
+              await message.edit(embed=message.embeds[0])
+            else:
+              await throw_pokeball(payload, user); 
+      except Exception as e:
+        print(f"Error processing pokeball throw: {e}")   
         
 
 @client.event
