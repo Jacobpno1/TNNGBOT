@@ -125,7 +125,29 @@ async def on_raw_reaction_add(payload):
 
   if (payload.emoji.name == "pokeball"):    
     await throw_pokeball(payload, user) 
-             
+
+  if (payload.emoji.name == "👍"):    
+    if (message.content is not None and message.content.startswith("[TRADE]")):      
+      if (str(user.id) == str(message.mentions[0].id)):
+        user1 = message.mentions[1]
+        user2 = message.mentions[0]
+        embed = message.embeds
+        user1_pokemon_number = embed[0].title.split('[')[-1].replace(']','')
+        user2_pokemon_number = embed[1].title.split('[')[-1].replace(']','')
+        user1_pokemon = await mongoDBAPI.getPokemon("Pokemon", "TNNGBOT", "JacobTEST", user1, int(user1_pokemon_number))
+        if user1_pokemon is False or user1_pokemon is None:
+          await message.edit(content=f"[TRADE FAILED] {user1.mention} does not own a pokemon with number {user1_pokemon_number}.", embeds=[])
+          return
+        user2_pokemon = await mongoDBAPI.getPokemon("Pokemon", "TNNGBOT", "JacobTEST", user2, int(user2_pokemon_number))
+        if user2_pokemon is False or user2_pokemon is None:
+          await message.edit(content=f"[TRADE FAILED] {user2.mention} does not own a pokemon with number {user2_pokemon_number}.", embeds=[])
+          return 
+        result = await mongoDBAPI.tradePokemon("Pokemon", "TNNGBOT", "JacobTEST", user1, user2, user1_pokemon, user2_pokemon)        
+        if result == True:
+          await message.edit(content=f"[TRADE COMPLETED] {user.mention} traded <:pokeball:1419845300742520964> {user1_pokemon['name']} [{user1_pokemon['number']}] for {message.mentions[0].mention}'s <:pokeball:1419845300742520964> {user2_pokemon['name']} [{user2_pokemon['number']}]!",
+                             embeds=[],)                   
+        else:
+          await message.edit(content=f"[TRADE FAILED] Something went wrong with the trade between {user1.mention} and {user2.mention}.", embeds=[])
   
   await mongoDBAPI.addReaction("Messages", "TNNGBOT", "JacobTEST", payload, user)
 
@@ -176,18 +198,18 @@ async def pokedex(interaction: discord.Interaction):
     if caught_pokemon:
       embed = discord.Embed(title=f"{interaction.user.display_name}'s Pokedex")
       for p in caught_pokemon:
-        embed.add_field(name=f"#{p['number']} {p['name'].capitalize()}", value=f"Caught on {p['created_at']}", inline=False)
+        embed.add_field(name=f"<:pokeball:1419845300742520964> #{p['number']} {p['name'].capitalize()}", value=f"Caught on {p['created_at']}", inline=False)
         # embed.set_thumbnail(url=p['image_url'])  
       await interaction.response.send_message(embed=embed, ephemeral=True)
     else:
-      await interaction.response.send_message("You haven't caught any Pokemon yet! React to a Pokemon with a :pokeball: to catch it!", ephemeral=True)
+      await interaction.response.send_message("You haven't caught any Pokemon yet! React to a Pokemon with a <:pokeball:1419845300742520964> to catch it!", ephemeral=True)
 
 @client.tree.command(name="pokemon", description="Summon a Pokemon you've caught!")
 @app_commands.describe(pokemon_number="The number of the Pokemon you want to summon (1-151)")
 async def pokedex(interaction: discord.Interaction, pokemon_number: str):    
   caught_pokemon = await mongoDBAPI.getPokemon("Pokemon", "TNNGBOT", "JacobTEST", interaction.user, int(pokemon_number))
   if caught_pokemon:
-    embed = discord.Embed(title=f"I choose you... {caught_pokemon['name'].capitalize()}!")    
+    embed = discord.Embed(title=f"I choose you... <:pokeball:1419845300742520964> {caught_pokemon['name'].capitalize()}!")    
     embed.set_thumbnail(url=caught_pokemon['image_url'])      
     await interaction.response.send_message(embed=embed)
   else:
@@ -201,6 +223,29 @@ async def spawn_pokemon(interaction: discord.Interaction, pokemon_number: str, c
     await interaction.response.send_message(f"Spawned pokemon number {pokemon_number}!", ephemeral=True) 
   else:
     await interaction.response.send_message("You do not have permission to use this command.", ephemeral=True)
+
+@client.tree.command(name="trade", description="Trade a Pokemon with another user")
+@app_commands.describe(user="User to trade with.", my_pokemon_number="My PokeNumber (1-151)", for_pokemon_number="Their PokeNumber (1-151)")
+async def trade_pokemon(interaction: discord.Interaction, user: discord.Member, my_pokemon_number: int, for_pokemon_number: int):    
+  i_user = interaction.user
+  my_pokemon = await mongoDBAPI.getPokemon("Pokemon", "TNNGBOT", "JacobTEST", i_user, int(my_pokemon_number))
+  for_pokemon = await mongoDBAPI.getPokemon("Pokemon", "TNNGBOT", "JacobTEST", user, int(for_pokemon_number))
+  if my_pokemon is False or my_pokemon is None:
+    await interaction.response.send_message(f"❗ You do not own a pokemon with number {my_pokemon_number}.", ephemeral=True) 
+    return
+  if for_pokemon is False or for_pokemon is None:
+    await interaction.response.send_message(f"❗ {user.display_name} does not own a pokemon with number {for_pokemon_number}.", ephemeral=True) 
+    return
+  for_pokemon_embed = discord.Embed(title=f"{user.display_name} trades: <:pokeball:1419845300742520964> {for_pokemon['name']} [{for_pokemon['number']}]")
+  for_pokemon_embed.set_thumbnail(url=for_pokemon['image_url'])  
+  my_pokemon_embed = discord.Embed(title=f"{i_user.display_name} trades: <:pokeball:1419845300742520964> {my_pokemon['name']} [{my_pokemon['number']}]")
+  my_pokemon_embed.set_thumbnail(url=my_pokemon['image_url'])  
+  
+    
+  await interaction.response.send_message(f"[TRADE] {user.mention}, {i_user.mention} wants to trade Pokemon! :thumbsup: to accept the trade.", 
+                                          embeds=[my_pokemon_embed,for_pokemon_embed], 
+                                          ephemeral=False)
+  
 
 keep_alive()
 client.run(os.environ['TOKEN'])

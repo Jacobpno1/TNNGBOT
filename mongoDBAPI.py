@@ -255,3 +255,69 @@ async def getPokemon(collection, database, datasource, user, number):
   else:
     print("No Caught Pokemon Found")
     return False
+  
+async def tradePokemon(collection, database, datasource, user1, user2, pokemon1, pokemon2):
+  previous_owners1 = pokemon1["previous_owners"] if "previous_owners" in pokemon1 else []
+  if user1.id not in previous_owners1:
+    previous_owners1.append(str(user1.id)) 
+  previous_owners2 = pokemon2["previous_owners"] if "previous_owners" in pokemon2 else []
+  if user2.id not in previous_owners2:
+    previous_owners2.append(str(user2.id))
+  
+  url = BASEURL + "findOne"   
+  
+  payload1 = json.dumps({
+    "collection": collection,
+    "database": database,
+    "dataSource": datasource,
+    "filter": { "caught_by": user1.id, "number": pokemon1["number"], "_v": { "$eq": pokemon1["_v"] } if "_v" in pokemon1 else {"$exists": False} },
+    "update": {
+      "$set" : {
+        "caught_by" : user2.id,           
+        "traded_at": datetime.now().isoformat(),          
+        "previous_owners": previous_owners1,
+        "_v": pokemon1["_v"] + 1 if "_v" in pokemon1 else 0
+      }
+    }
+  }, indent=4, sort_keys=True, default=str)
+  
+  payload2 = json.dumps({
+    "collection": collection,
+    "database": database,
+    "dataSource": datasource,
+    "filter": { "caught_by": user2.id, "number": pokemon2["number"], "_v": { "$eq": pokemon2["_v"] } if "_v" in pokemon2 else {"$exists": False} },
+    "update": {
+      "$set" : {
+        "caught_by" : user1.id,           
+        "traded_at": datetime.now().isoformat(),     
+        "previous_owners": previous_owners2,     
+        "_v": pokemon2["_v"] + 1 if "_v" in pokemon2 else 0
+      }
+    }
+  }, indent=4, sort_keys=True, default=str)
+  
+  url = BASEURL + "updateOne"
+  response1 = requests.request("POST", url, headers=HEADERS, data=payload1)
+  result1 = response1.json()
+  if result1.get("matchedCount", 0) == 0:
+    return False
+  
+  response2 = requests.request("POST", url, headers=HEADERS, data=payload2)
+  result2 = response2.json()
+  
+  if result2.get("matchedCount", 0) == 1:
+    return True
+  else:
+    # Revert the first update if the second fails
+    revert_payload1 = json.dumps({
+      "collection": collection,
+      "database": database,
+      "dataSource": datasource,
+      "filter": { "caught_by": user1.id, "number": pokemon1, "_v": { "$eq": pokemon1["_v"] } },
+      "update": {
+        "$set" : pokemon1
+      }
+    }, indent=4, sort_keys=True, default=str)
+    requests.request("POST", url, headers=HEADERS, data=revert_payload1)
+    return False
+  
