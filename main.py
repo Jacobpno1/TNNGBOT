@@ -59,7 +59,7 @@ async def on_message(message):
       msg = get_random_quote('./gandalfQuotes.json').format(message)
       await message.channel.send(str(client.get_emoji(917135652171161681)) + " Gandalf: " + msg)
 
-  if random.randrange(1, 50) == 1:
+  if random.randrange(1, os.environ['pokemonSpawnRate']) == 1:
     await spawnPokemon(message)     
 
   await mongoDBAPI.insertMessage("Messages", "TNNGBOT", "JacobTEST", message)
@@ -80,7 +80,7 @@ async def spawnPokemon(message, pokemon_number=None, catch_count=None):
   embed.set_footer(text=f"{pokeNo}")
   channel = discord.utils.get(message.guild.channels, name="tall-grass")
   new_message = await channel.send(embed=embed)
-  catch_count = catch_count if catch_count is not None else random.randint(0, 2)
+  catch_count = catch_count if catch_count is not None else random.randint(0, os.environ['pokemonMaxAttempts'])
   await mongoDBAPI.createPokemon("Pokemon", "TNNGBOT", "JacobTEST", pokeNo, pokemon, str(new_message.id), catch_count)
 
 # @client.command()
