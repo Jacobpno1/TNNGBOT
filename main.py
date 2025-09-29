@@ -60,7 +60,10 @@ async def on_message(message):
       await message.channel.send(str(client.get_emoji(917135652171161681)) + " Gandalf: " + msg)
 
   if random.randrange(1, 50) == 1:
-    await spawnPokemon(message)     
+    await spawnPokemon(message)    
+
+  if message.channel.type == discord.ChannelType.public_thread and message.channel.name.startswith("Battle:"): 
+    await handle_battle_message(message)
 
   await mongoDBAPI.insertMessage("Messages", "TNNGBOT", "JacobTEST", message)
 
@@ -82,6 +85,9 @@ async def spawnPokemon(message, pokemon_number=None, catch_count=None):
   new_message = await channel.send(embed=embed)
   catch_count = catch_count if catch_count is not None else random.randint(0, 2)
   await mongoDBAPI.createPokemon("Pokemon", "TNNGBOT", "JacobTEST", pokeNo, pokemon, str(new_message.id), catch_count)
+
+# async def handle_attle_message(message):
+  #doo stuf
 
 # @client.command()
 async def getmsg(ctx, msgID: int):
@@ -208,6 +214,34 @@ async def pokedex(interaction: discord.Interaction):
 @app_commands.describe(pokemon_number="The number of the Pokemon you want to summon (1-151)")
 async def pokedex(interaction: discord.Interaction, pokemon_number: str):    
   caught_pokemon = await mongoDBAPI.getPokemon("Pokemon", "TNNGBOT", "JacobTEST", interaction.user, int(pokemon_number))
+  if interaction.channel.type == discord.ChannelType.public_thread and interaction.channel.name.startswith("Battle:"):
+    battle = await mongoDBAPI.getActiveBattleByThreadID(interaction.channel.id)
+    if battle is not False and battle is not None:
+      my_pokemon_arr = [pokemon for pokemon in battle["pokemon"] if pokemon["owner_id"] == str(interaction.user.id)]
+      #if my pokemon does not exist in battle pokemon list and max participants reached
+      is_pokemon_in_battle = next((pokemon for pokemon in my_pokemon_arr if pokemon["owner_id"] == str(interaction.user.id) and caught_pokemon["message_id"] == pokemon["message_id"]), None)
+      current_turn_pokemon_message_id = next((turn["pokemon_message_id"] for turn in battle["current_round"] if turn["user_id"] == str(interaction.user.id)), None)
+      if len(my_pokemon_arr) >= battle["number_of_pokemon"] and is_pokemon_in_battle is None:
+        await interaction.response.send_message(f"❗ You can only summon up to {battle['max_pokemons_per_user']} Pokemon in this battle.", ephemeral=True)
+        return
+      #if pokemon is not current pokemon, dimiss current
+      if current_turn_pokemon_message_id is not None and current_turn_pokemon_message_id != caught_pokemon["message_id"]:
+        current_pokemon = next(pokemon for pokemon in battle["pokemon"] if pokemon["message_id"] == current_turn_pokemon_message_id)
+        await interaction.response.send_message(f"❗ You can only command your current Pokemon in battle. Dismissing {interaction.user.display_name}'s current Pokemon.", ephemeral=True)
+        return
+      #if pokemon is not already in battle, summon it
+      if is_pokemon_in_battle is False:
+        pokemon_r = await requests.get("https://pokeapi.co/api/v2/pokemon/" + str(pokeNo)) 
+        pokemon = pokemon_r.json()
+        result = await mongoDBAPI.summonPokemonToBattle(battle, pokemon, interaction.user)
+        if result is True:
+          embed = discord.Embed(title=f"{interaction.user.display_name} summons: <:pokeball:1419845300742520964> {pokemon['name'].capitalize()}!")    
+          embed.set_thumbnail(url=pokemon['sprites']['front_default'])      
+          await interaction.response.send_message(embed=embed)
+        else:
+          await interaction.response.send_message("❗ Something went wrong while summoning your Pokemon to the battle.", ephemeral=True)
+        return       
+  
   if caught_pokemon:
     embed = discord.Embed(title=f"I choose you... <:pokeball:1419845300742520964> {caught_pokemon['name'].capitalize()}!")    
     embed.set_thumbnail(url=caught_pokemon['image_url'])      
@@ -245,6 +279,29 @@ async def trade_pokemon(interaction: discord.Interaction, user: discord.Member, 
   await interaction.response.send_message(f"[TRADE] {user.mention}, {i_user.mention} wants to trade Pokemon! :thumbsup: to accept the trade.", 
                                           embeds=[my_pokemon_embed,for_pokemon_embed], 
                                           ephemeral=False)
+  
+@client.tree.command(name="battle", description="Battle Pokemon with another user")
+@app_commands.describe(user="User to battle with.", number_of_pokemon="Number of Pokemon to battle with(1-3)")
+async def battle_pokemon(interaction: discord.Interaction, user: discord.Member, number_of_pokemon: int):    
+  # Create a thread to battle in
+  if number_of_pokemon < 1 or number_of_pokemon > 3:
+    await interaction.response.send_message(f"❗ You can only battle with 1 to 3 Pokemon.", ephemeral=True) 
+    return
+  i_user = interaction.user
+  battle = await mongoDBAPI.createBattle(thread.id, i_user, user, number_of_pokemon)
+  thread = await interaction.channel.create_thread(name=f"Battle: {i_user.display_name} vs {user.display_name}", type=discord.ChannelType.public_thread)
+  await thread.send(f"{i_user.mention} has challenged {user.mention} to a Pokemon battle! The winner takes all!")
+  await interaction.response.send_message(f"✅ Battle thread created: {thread.mention}", ephemeral=True)
+  
+  
+@client.tree.command(name="command", description="Give a command to your Pokemon in a battle")
+@app_commands.describe(command="Command to give your Pokemon")
+async def battle_pokemon(interaction: discord.Interaction, command: str):    
+  # If user is in a battle thread, process the command
+  if interaction.channel.type == discord.ChannelType.public_thread and interaction.channel.name.startswith("Battle:"): 
+    await interaction.response.send_message(f"{interaction.user.mention} commands their Pokemon to '{command}'!", ephemeral=False)
+  else:
+    await interaction.response.send_message(f"❗ You can only command Pokemon in a battle.", ephemeral=True)
   
 
 keep_alive()
