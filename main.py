@@ -8,7 +8,7 @@ from db.manager import MongoDBManager
 
 load_dotenv()
 
-intents = discord.Intents.default()
+intents = discord.Intents.all()
 client = commands.Bot(command_prefix="!", intents=intents)
 
 @client.event

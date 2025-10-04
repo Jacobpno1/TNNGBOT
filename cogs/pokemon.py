@@ -19,13 +19,9 @@ class Pokemon(commands.Cog):
     
   ### pokemon event listeners
   @commands.Cog.listener()
-  async def on_message(self, message: discord.Message):
-    client = self.bot
+  async def on_message(self, message: discord.Message):    
     if not self.bot.user:  # make sure the bot user is ready
-      return
-    # Do not reply to comments from these users, including itself (client.user)
-    blocked_users = [ client.user ]          
-    
+      return              
     if random.randrange(1, int(os.environ['pokemonSpawnRate'])) == 1:
       await self.spawnPokemon(message)   
       
@@ -62,15 +58,15 @@ class Pokemon(commands.Cog):
             return
           user1_pokemon_number = embed[0].title.split('[')[-1].replace(']','')
           user2_pokemon_number = embed[1].title.split('[')[-1].replace(']','')
-          user1_pokemon = await db.pokemon.get_pokemon(user1, int(user1_pokemon_number))
+          user1_pokemon = db.pokemon.get_pokemon(user1, int(user1_pokemon_number))
           if user1_pokemon is False or user1_pokemon is None:
             await message.edit(content=f"[TRADE FAILED] {user1.mention} does not own a pokemon with number {user1_pokemon_number}.", embeds=[])
             return
-          user2_pokemon = await db.pokemon.get_pokemon( user2, int(user2_pokemon_number))
+          user2_pokemon = db.pokemon.get_pokemon( user2, int(user2_pokemon_number))
           if user2_pokemon is False or user2_pokemon is None:
             await message.edit(content=f"[TRADE FAILED] {user2.mention} does not own a pokemon with number {user2_pokemon_number}.", embeds=[])
             return 
-          result = await db.pokemon.trade_pokemon(user1, user2, user1_pokemon, user2_pokemon)    
+          result = db.pokemon.trade_pokemon(user1, user2, user1_pokemon, user2_pokemon)    
           if result == True:
             await message.edit(content=f"[TRADE COMPLETED] {user.mention} traded <:pokeball:1419845300742520964> {user1_pokemon['name']} [{user1_pokemon['number']}] for {message.mentions[0].mention}'s <:pokeball:1419845300742520964> {user2_pokemon['name']} [{user2_pokemon['number']}]!",
                       embeds=[],)           
@@ -81,7 +77,7 @@ class Pokemon(commands.Cog):
   @app_commands.command(name="pokedex", description="List the Pokemon you've caught!")
   async def pokedex(self, interaction: discord.Interaction):  
     # caught_pokemon = await mongoDBAPI.getMyCaughtPokemon("Pokemon", "TNNGBOT", "JacobTEST", interaction.user)
-    caught_pokemon = await db.pokemon.get_my_caught_pokemon(interaction.user)
+    caught_pokemon = db.pokemon.get_my_caught_pokemon(interaction.user)
     if caught_pokemon:
       embed = discord.Embed(title=f"{interaction.user.display_name}'s Pokedex")
       for p in caught_pokemon:        
@@ -97,7 +93,7 @@ class Pokemon(commands.Cog):
   @app_commands.command(name="pokemon", description="Summon a Pokemon you've caught!")
   @app_commands.describe(pokemon_number="The number of the Pokemon you want to summon (1-151)")
   async def pokemon(self, interaction: discord.Interaction, pokemon_number: str):  
-    caught_pokemon = await db.pokemon.get_pokemon( interaction.user, int(pokemon_number))
+    caught_pokemon = db.pokemon.get_pokemon( interaction.user, int(pokemon_number))
     if caught_pokemon:
       embed = discord.Embed(title=f"I choose you... <:pokeball:1419845300742520964> {caught_pokemon['name'].capitalize()}!")  
       embed.set_thumbnail(url=caught_pokemon['image_url'])    
@@ -121,8 +117,8 @@ class Pokemon(commands.Cog):
   @app_commands.describe(user="User to trade with.", my_pokemon_number="My PokeNumber (1-151)", for_pokemon_number="Their PokeNumber (1-151)")
   async def trade_pokemon(self, interaction: discord.Interaction, user: discord.Member, my_pokemon_number: int, for_pokemon_number: int):  
     i_user = interaction.user
-    my_pokemon = await db.pokemon.get_pokemon( i_user, int(my_pokemon_number))
-    for_pokemon = await db.pokemon.get_pokemon( user, int(for_pokemon_number))
+    my_pokemon = db.pokemon.get_pokemon( i_user, int(my_pokemon_number))
+    for_pokemon =  db.pokemon.get_pokemon( user, int(for_pokemon_number))
     if my_pokemon is False or my_pokemon is None:
       await interaction.response.send_message(f"❗ You do not own a pokemon with number {my_pokemon_number}.", ephemeral=True) 
       return
@@ -156,7 +152,7 @@ class Pokemon(commands.Cog):
     if (len(message.embeds) != 0 and message.embeds[0] is not None and message.embeds[0].footer.text is not None):
       # pokeNo = int(message.embeds[0].footer.text)
       try:
-        pokemon = await db.pokemon.get_pokemon_by_message_id(str(message.id))      
+        pokemon = db.pokemon.get_pokemon_by_message_id(str(message.id))      
         if pokemon is None:
           print("No pokemon found for message ID " + str(message.id))
           return    
@@ -176,7 +172,7 @@ class Pokemon(commands.Cog):
           else:
             # Track the failed attempt
             # success = await mongoDBAPI.addCatchAttempt("Pokemon", "TNNGBOT", "JacobTEST", str(message.id), user, pokemon)
-            success = await db.pokemon.add_catch_attempt(str(message.id), user, pokemon)
+            success = db.pokemon.add_catch_attempt(str(message.id), user, pokemon)
             if success is True:
               message.embeds[0].add_field(name=f"Oh no {user.display_name}! {pokemon['name'].capitalize()} broke free!", value="", inline=False)
               await message.edit(embed=message.embeds[0])
@@ -204,7 +200,7 @@ class Pokemon(commands.Cog):
     catch_count = catch_count if catch_count is not None else random.randint(0, int(os.environ['pokemonMaxAttempts']))
     name = pokemon["name"]
     image_url = pokemon["sprites"]["front_default"]
-    await db.pokemon.create_pokemon(pokeNo, name, image_url, str(new_message.id), catch_count)
+    db.pokemon.create_pokemon(pokeNo, name, image_url, str(new_message.id), catch_count)
   
 async def setup(bot: commands.Bot):
   await bot.add_cog(Pokemon(bot))

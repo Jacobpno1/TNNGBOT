@@ -1,12 +1,14 @@
 #type for a pokemon
 from typing import TypedDict, Optional, List
 from datetime import datetime
+from typing_extensions import NotRequired
 
 class PokemonDoc(TypedDict):
+    _id: NotRequired[str] 
     number: int
     name: str
     image_url: str
-    message_id: int
+    message_id: str
     catch_count: int
     catch_attempts: List[str]
     caught: bool

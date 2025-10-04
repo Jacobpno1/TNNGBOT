@@ -9,5 +9,5 @@ class MongoDBManager:
         self.database = database
 
         # Attach services
-        self.messages = MessageService(self.client, database, "messages")
-        self.pokemon = PokemonService(self.client, database, "pokemon")
+        self.messages = MessageService(self.client, database, "Messages")
+        self.pokemon = PokemonService(self.client, database, "Pokemon")
