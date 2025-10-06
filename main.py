@@ -11,7 +11,7 @@ from discord import app_commands
 
 load_dotenv()
 
-intents = discord.Intents.default()
+intents = discord.Intents.all()
 # client = discord.Client(intents=intents)
 client = commands.Bot(command_prefix='!', intents=intents);
 
