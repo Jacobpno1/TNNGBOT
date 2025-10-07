@@ -157,26 +157,29 @@ async def tradePokemon(collection, database, datasource, user1, user2, pokemon1,
     previous_owners2 = pokemon2.get("previous_owners", [])
     if str(user2.id) not in previous_owners2:
         previous_owners2.append(str(user2.id))
+        
+    pokemone1_v = pokemon1["_v"] if "_v" in pokemon1 else 0
+    pokemone2_v = pokemon2["_v"] if "_v" in pokemon2 else 0
 
     result1 = col.update_one(
-        {"caught_by": user1.id, "number": pokemon1["number"], "_v": pokemon1["_v"]},
+        {"caught_by": user1.id, "number": pokemon1["number"], "_v": pokemone1_v},
         {"$set": {
             "caught_by": user2.id,
             "traded_at": datetime.now().isoformat(),
             "previous_owners": previous_owners1,
-            "_v": pokemon1["_v"] + 1
+            "_v": pokemone1_v + 1
         }}
     )
     if result1.matched_count == 0:
         return False
 
     result2 = col.update_one(
-        {"caught_by": user2.id, "number": pokemon2["number"], "_v": pokemon2["_v"]},
+        {"caught_by": user2.id, "number": pokemon2["number"], "_v": pokemone2_v},
         {"$set": {
             "caught_by": user1.id,
             "traded_at": datetime.now().isoformat(),
             "previous_owners": previous_owners2,
-            "_v": pokemon2["_v"] + 1
+            "_v": pokemone2_v + 1
         }}
     )
 
