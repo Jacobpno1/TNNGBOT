@@ -8,6 +8,8 @@ from dotenv import load_dotenv
 from keep_alive import keep_alive
 from discord.ext import commands
 from discord import app_commands
+from datetime import datetime
+import pytz
 
 load_dotenv()
 
@@ -192,17 +194,71 @@ async def on_raw_reaction_remove(payload):
   user = await client.fetch_user(payload.user_id)
   await mongoDBAPI.removeReaction("Messages", "TNNGBOT", "JacobTEST", payload, user)
 
+# @client.tree.command(name="pokedex", description="List the Pokemon you've caught!")
+# async def pokedex(interaction: discord.Interaction):    
+#     caught_pokemon = await mongoDBAPI.getMyCaughtPokemon("Pokemon", "TNNGBOT", "JacobTEST", interaction.user)
+#     if caught_pokemon:
+#       embed = discord.Embed(title=f"{interaction.user.display_name}'s Pokedex")
+#       for p in caught_pokemon:
+#         embed.add_field(name=f"<:pokeball:1419845300742520964> #{p['number']} {p['name'].capitalize()}", value=f"Caught on {p['created_at']}", inline=False)
+#         # embed.set_thumbnail(url=p['image_url'])  
+#       await interaction.response.send_message(embed=embed, ephemeral=True)
+#     else:
+#       await interaction.response.send_message("You haven't caught any Pokemon yet! React to a Pokemon with a <:pokeball:1419845300742520964> to catch it!", ephemeral=True)
+
 @client.tree.command(name="pokedex", description="List the Pokemon you've caught!")
-async def pokedex(interaction: discord.Interaction):    
-    caught_pokemon = await mongoDBAPI.getMyCaughtPokemon("Pokemon", "TNNGBOT", "JacobTEST", interaction.user)
+@app_commands.describe(
+    sort_by="Choose how to sort your Pokémon",
+    direction="Choose ascending or descending order"
+)
+@app_commands.choices(
+    sort_by=[
+        app_commands.Choice(name="Number", value="number"),
+        app_commands.Choice(name="Name", value="name"),
+        app_commands.Choice(name="Caught Date", value="caught_at"),
+    ],
+    direction=[
+        app_commands.Choice(name="Ascending", value="asc"),
+        app_commands.Choice(name="Descending", value="desc"),
+    ]
+)
+async def pokedex(
+    interaction: discord.Interaction,
+    sort_by: str = "number",
+    direction: str = "asc"
+):
+    caught_pokemon = await mongoDBAPI.getMyCaughtPokemon(
+        "Pokemon", "TNNGBOT", interaction.user, sort_by=sort_by, ascending=(direction == "asc")
+    )
+
     if caught_pokemon:
-      embed = discord.Embed(title=f"{interaction.user.display_name}'s Pokedex")
-      for p in caught_pokemon:
-        embed.add_field(name=f"<:pokeball:1419845300742520964> #{p['number']} {p['name'].capitalize()}", value=f"Caught on {p['created_at']}", inline=False)
-        # embed.set_thumbnail(url=p['image_url'])  
-      await interaction.response.send_message(embed=embed, ephemeral=True)
+        # Build a table header
+        table = "```"
+        table += f"   {'No.':<5} {'Name':<15} {'Caught On'}\n"
+        table += "-" * 45 + "\n"
+        local_tz = pytz.timezone("US/Eastern")
+
+        # Fill rows
+        for p in caught_pokemon:
+            dt = datetime.fromisoformat(p["created_at"])
+            dt_local = dt.astimezone(local_tz)
+            formatted_date = dt_local.strftime("%m/%d/%Y %I:%M %p")
+
+            table += f"◓  {p['number']:<5} {p['name'].capitalize():<15} {formatted_date}\n"
+            # table += f"◓ {p['number']:<5} {p['name'].capitalize():<15} {p['created_at']}\n"
+
+        table += "```"
+
+        await interaction.response.send_message(
+            f"**{interaction.user.display_name}'s Pokedex**\n{table}",
+            ephemeral=True
+        )
     else:
-      await interaction.response.send_message("You haven't caught any Pokemon yet! React to a Pokemon with a <:pokeball:1419845300742520964> to catch it!", ephemeral=True)
+        await interaction.response.send_message(
+            "You haven't caught any Pokemon yet! React to a Pokemon with a <:pokeball:1419845300742520964> to catch it!",
+            ephemeral=True
+        )
+
 
 @client.tree.command(name="pokemon", description="Summon a Pokemon you've caught!")
 @app_commands.describe(pokemon_number="The number of the Pokemon you want to summon (1-151)")

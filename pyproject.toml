@@ -12,6 +12,7 @@ Flask = "^2.0.2"
 discord-interactions = "^0.3.0"
 python-dotenv = "^0.20.0"
 pymongo = "^4.3.3"
+pytz = "^2024.1"
 
 [tool.poetry.dev-dependencies]
 debugpy = "^1.5.1"

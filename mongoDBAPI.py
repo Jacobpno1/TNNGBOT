@@ -132,9 +132,20 @@ async def catchPokemon(collection, database, datasource, message_id, pokemon, us
     return result.matched_count == 1
 
 
-async def getMyCaughtPokemon(collection, database, datasource, user):
+async def getMyCaughtPokemon(collection, database, user, sort_by: str = "number", ascending: bool = True):
     col = get_collection(database, collection)
-    caught_pokemon = list(col.find({"caught_by": user.id}))
+
+    # Convert boolean into pymongo sort direction
+    sort_direction = 1 if ascending else -1
+
+    # Default to number if invalid sort_by passed
+    if sort_by not in ["number", "name", "caught_at"]:
+        sort_by = "number"
+
+    caught_pokemon = list(
+        col.find({"caught_by": user.id}).sort(sort_by, sort_direction)
+    )
+
     return caught_pokemon if caught_pokemon else False
 
 
