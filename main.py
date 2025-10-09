@@ -10,6 +10,7 @@ from discord.ext import commands
 from discord import app_commands
 from datetime import datetime
 import pytz
+from collections import Counter
 
 load_dotenv()
 
@@ -146,7 +147,7 @@ async def on_raw_reaction_add(payload):
           return 
         result = await mongoDBAPI.tradePokemon("Pokemon", "TNNGBOT", "JacobTEST", user1, user2, user1_pokemon, user2_pokemon)        
         if result == True:
-          await message.edit(content=f"[TRADE COMPLETED] {user.mention} traded <:pokeball:1419845300742520964> {user1_pokemon['name']} [{user1_pokemon['number']}] for {message.mentions[0].mention}'s <:pokeball:1419845300742520964> {user2_pokemon['name']} [{user2_pokemon['number']}]!",
+          await message.edit(content=f"[TRADE COMPLETED] {user1.mention} traded <:pokeball:1419845300742520964> {user1_pokemon['name']} [{user1_pokemon['number']}] for {user2.mention}'s <:pokeball:1419845300742520964> {user2_pokemon['name']} [{user2_pokemon['number']}]!",
                              embeds=[],)                   
         else:
           await message.edit(content=f"[TRADE FAILED] Something went wrong with the trade between {user1.mention} and {user2.mention}.", embeds=[])
@@ -220,44 +221,63 @@ async def on_raw_reaction_remove(payload):
     direction=[
         app_commands.Choice(name="Ascending", value="asc"),
         app_commands.Choice(name="Descending", value="desc"),
+    ],
+    duplicates=[
+        app_commands.Choice(name="Show", value="show"),
+        app_commands.Choice(name="Hide", value="hide"),
+        app_commands.Choice(name="Only", value="only"),
     ]
 )
 async def pokedex(
-    interaction: discord.Interaction,
-    sort_by: str = "number",
-    direction: str = "asc"
+  interaction: discord.Interaction,
+  sort_by: str = "number",
+  direction: str = "asc",
+  duplicates: str = "show"
 ):
-    caught_pokemon = await mongoDBAPI.getMyCaughtPokemon(
-        "Pokemon", "TNNGBOT", interaction.user, sort_by=sort_by, ascending=(direction == "asc")
+  caught_pokemon = await mongoDBAPI.getMyCaughtPokemon(
+    "Pokemon", "TNNGBOT", interaction.user, sort_by=sort_by, ascending=(direction == "asc")
+  )
+
+  if caught_pokemon:
+    if duplicates == "hide":
+      seen = set()
+      filtered = []
+      for p in caught_pokemon:
+        if p["number"] not in seen:
+          seen.add(p["number"])
+          filtered.append(p)
+      caught_pokemon = filtered
+
+    elif duplicates == "only":
+      # Count occurrences by number
+      counts = Counter(p["number"] for p in caught_pokemon)
+      caught_pokemon = [p for p in caught_pokemon if counts[p["number"]] > 1]
+    # Build a table header
+    table = "```"
+    table += f"   {'No.':<5} {'Name':<15} {'Caught On'}\n"
+    table += "-" * 49 + "\n"
+    local_tz = pytz.timezone("US/Eastern")
+
+    # Fill rows
+    for p in caught_pokemon:
+      dt = datetime.fromisoformat(p["caught_at"])
+      dt_local = dt.astimezone(local_tz)
+      formatted_date = dt_local.strftime("%m/%d/%Y %I:%M %p")
+
+      table += f"◓  {p['number']:<5} {p['name'].capitalize():<15} {formatted_date} EST\n"
+      # table += f"◓ {p['number']:<5} {p['name'].capitalize():<15} {p['created_at']}\n"
+
+    table += "```"
+
+    await interaction.response.send_message(
+      f"**{interaction.user.display_name}'s Pokedex**\n{table}",
+      ephemeral=True
     )
-
-    if caught_pokemon:
-        # Build a table header
-        table = "```"
-        table += f"   {'No.':<5} {'Name':<15} {'Caught On'}\n"
-        table += "-" * 45 + "\n"
-        local_tz = pytz.timezone("US/Eastern")
-
-        # Fill rows
-        for p in caught_pokemon:
-            dt = datetime.fromisoformat(p["created_at"])
-            dt_local = dt.astimezone(local_tz)
-            formatted_date = dt_local.strftime("%m/%d/%Y %I:%M %p")
-
-            table += f"◓  {p['number']:<5} {p['name'].capitalize():<15} {formatted_date}\n"
-            # table += f"◓ {p['number']:<5} {p['name'].capitalize():<15} {p['created_at']}\n"
-
-        table += "```"
-
-        await interaction.response.send_message(
-            f"**{interaction.user.display_name}'s Pokedex**\n{table}",
-            ephemeral=True
-        )
-    else:
-        await interaction.response.send_message(
-            "You haven't caught any Pokemon yet! React to a Pokemon with a <:pokeball:1419845300742520964> to catch it!",
-            ephemeral=True
-        )
+  else:
+    await interaction.response.send_message(
+      "You haven't caught any Pokemon yet! React to a Pokemon with a <:pokeball:1419845300742520964> to catch it!",
+      ephemeral=True
+    )
 
 
 @client.tree.command(name="pokemon", description="Summon a Pokemon you've caught!")
