@@ -3,7 +3,7 @@ import discord
 from dotenv import load_dotenv
 from datetime import datetime
 from pymongo import MongoClient
-from db.base import BaseService
+from tnngbot.db.base import BaseService
 
 class MessageService(BaseService):
     async def insert_message(self, message: discord.Message):

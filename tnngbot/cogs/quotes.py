@@ -2,8 +2,8 @@ import discord
 import random
 import os
 from discord.ext import commands
-from db.manager import MongoDBManager
-from utils.quotes import get_random_quote
+from tnngbot.db.manager import MongoDBManager
+from tnngbot.utils.quotes import get_random_quote
 
 # Database setup
 MONGO_DBNAME = os.environ['MONGO_DBNAME']
@@ -28,17 +28,17 @@ class Quotes(commands.Cog):
     if client.user.mentioned_in(message):
       if message.content.lower().find('bobbyb') != -1:
         print("Replied to message of user '{}' in guild '{}' / channel '{}'".format(message.author, message.guild, message.channel))
-        msg = get_random_quote('./bobbyBquotes.json').format(message)
+        msg = get_random_quote('tnngbot/static/bobbyBquotes.json').format(message)
         await message.channel.send(str(client.get_emoji(917134295225741313)) + " BobbyB: " + msg)
 
       if message.content.lower().find('machoman') != -1:
         print("Replied to message of user '{}' in guild '{}' / channel '{}'".format(message.author, message.guild, message.channel))
-        msg = get_random_quote('./machoManQuotes.json').format(message)
+        msg = get_random_quote('tnngbot/static/machoManQuotes.json').format(message)
         await message.channel.send(str(client.get_emoji(1278457600404623401)) + " Macho Man: " + msg)
 
       if message.content.lower().find('gandalf') != -1:
         print("Replied to message of user '{}' in guild '{}' / channel '{}'".format(message.author, message.guild, message.channel))
-        msg = get_random_quote('./gandalfQuotes.json').format(message)
+        msg = get_random_quote('tnngbot/static/gandalfQuotes.json').format(message)
         await message.channel.send(str(client.get_emoji(917135652171161681)) + " Gandalf: " + msg)
 
     # if random.randrange(1, int(os.environ['pokemonSpawnRate'])) == 1:
@@ -72,17 +72,17 @@ class Quotes(commands.Cog):
 
     # :bobbyb:917134295225741313
     if (payload.emoji.name == "bobbyb"):    
-      await message.reply(str(payload.emoji) + " BobbyB: " + get_random_quote('./bobbyBquotes.json').format(message))    
+      await message.reply(str(payload.emoji) + " BobbyB: " + get_random_quote('tnngbot/static/bobbyBquotes.json').format(message))    
     
     # :gandalf:917135652171161681
     if (payload.emoji.name == "gandalf"):    
-      await message.reply(str(payload.emoji) + " Gandalf: " + get_random_quote('./gandalfQuotes.json').format(message))      
+      await message.reply(str(payload.emoji) + " Gandalf: " + get_random_quote('tnngbot/static/gandalfQuotes.json').format(message))      
       
     if (payload.emoji.name == "laszlo"):    
-      await message.reply(str(payload.emoji) + " Laszlo: " + get_random_quote('./laszloQuotes.json').format(message))
+      await message.reply(str(payload.emoji) + " Laszlo: " + get_random_quote('tnngbot/static/laszloQuotes.json').format(message))
 
     if (payload.emoji.name == "machoman"):    
-      await message.reply(str(payload.emoji) + " Macho Man: " + get_random_quote('./machoManQuotes.json').format(message))
+      await message.reply(str(payload.emoji) + " Macho Man: " + get_random_quote('tnngbot/static/machoManQuotes.json').format(message))
     
     if (payload.emoji.name == "sarcasm"):
       lst = []

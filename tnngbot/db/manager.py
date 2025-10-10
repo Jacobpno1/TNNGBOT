@@ -1,6 +1,6 @@
 from pymongo import MongoClient
-from db.pokemon import PokemonService
-from db.messages import MessageService
+from tnngbot.db.pokemon import PokemonService
+from tnngbot.db.messages import MessageService
 
 class MongoDBManager:
     def __init__(self, database: str, uri: str):

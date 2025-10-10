@@ -1,7 +1,7 @@
 from discord import User, Member
 from datetime import datetime
-from db.base import BaseService
-from schemas.pokemon import PokemonDoc
+from tnngbot.db.base import BaseService
+from tnngbot.schemas.pokemon import PokemonDoc
 from typing import Optional, List
 
 class PokemonService(BaseService):
@@ -53,8 +53,13 @@ class PokemonService(BaseService):
         )
         return result.matched_count == 1
 
-    def get_my_caught_pokemon(self, user: User | Member) -> List[PokemonDoc]:
-        pokemon_list: List[PokemonDoc] = list(self.col.find({"caught_by": user.id})) or []
+    def get_my_caught_pokemon(self, user: User | Member, sort_by: str = "number", ascending: bool = True) -> List[PokemonDoc]:
+        # Convert boolean into pymongo sort direction
+        sort_direction = 1 if ascending else -1
+        # Default to number if invalid sort_by passed
+        if sort_by not in ["number", "name", "caught_at"]:
+            sort_by = "number"
+        pokemon_list: List[PokemonDoc] = list(self.col.find({"caught_by": user.id}).sort(sort_by, sort_direction)) or []
         return pokemon_list
 
     def get_pokemon(self, user: User | Member, number: int) -> PokemonDoc | None:
@@ -72,15 +77,18 @@ class PokemonService(BaseService):
             prev1.append(str(user1.id))
         if str(user2.id) not in prev2:
             prev2.append(str(user2.id))
+            
+        pokemon1_v = pokemon1["_v"] if "_v" in pokemon1 else 0
+        pokemon2_v = pokemon2["_v"] if "_v" in pokemon2 else 0
 
         result1 = self.col.update_one(
-            {"caught_by": user1.id, "number": pokemon1["number"], "_v": pokemon1["_v"]},
+            {"caught_by": user1.id, "number": pokemon1["number"], "_v": pokemon1_v},
             {
                 "$set": {
                     "caught_by": user2.id,
                     "traded_at": datetime.now().isoformat(),
                     "previous_owners": prev1,
-                    "_v": pokemon1["_v"] + 1,
+                    "_v": pokemon1_v + 1,
                 }
             },
         )
@@ -88,13 +96,13 @@ class PokemonService(BaseService):
             return False
 
         result2 = self.col.update_one(
-            {"caught_by": user2.id, "number": pokemon2["number"], "_v": pokemon2["_v"]},
+            {"caught_by": user2.id, "number": pokemon2["number"], "_v": pokemon2_v},
             {
                 "$set": {
                     "caught_by": user1.id,
                     "traded_at": datetime.now().isoformat(),
                     "previous_owners": prev2,
-                    "_v": pokemon2["_v"] + 1,
+                    "_v": pokemon2_v + 1,
                 }
             },
         )

@@ -1,10 +1,8 @@
 import os
-
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
-# from keep_alive import keep_alive
-from db.manager import MongoDBManager
+import asyncio
 
 load_dotenv()
 
@@ -22,15 +20,17 @@ async def on_ready():
 
 # Load all cogs
 async def load_cogs():  
-  await client.load_extension("cogs.pokemon")
-  await client.load_extension("cogs.quotes")
+  await client.load_extension("tnngbot.cogs.pokemon")
+  await client.load_extension("tnngbot.cogs.quotes")
 
-async def main():
+async def _main():
   async with client:
     await load_cogs()
     # keep_alive()
     await client.start(os.environ['DISCORD_TOKEN'])
 
-if __name__ == "__main__":
-  import asyncio
-  asyncio.run(main())
+if __name__ == "__main__":  
+  asyncio.run(_main())
+  
+def main():
+  asyncio.run(_main())
