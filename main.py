@@ -262,9 +262,11 @@ async def pokedex(
 
     prefix = f"**{interaction.user.display_name}'s Pokedex**\n"
 
-    async def fetch_rows(dupe_mode: str = None) -> List[str]:
+    async def fetch_rows(dupe_mode: str = None, sort_key: str = None, ascending_flag: bool = None) -> List[str]:
+      effective_sort = sort_key or sort_by
+      effective_asc = (direction == "asc") if ascending_flag is None else ascending_flag
       fresh = await mongoDBAPI.getMyCaughtPokemon(
-        "Pokemon", "TNNGBOT", interaction.user, sort_by=sort_by, ascending=(direction == "asc")
+        "Pokemon", "TNNGBOT", interaction.user, sort_by=effective_sort, ascending=effective_asc
       )
       if not fresh:
         return []
@@ -304,7 +306,7 @@ async def pokedex(
       return prefix + "```" + header + "".join(page_rows) + footer + "```"
 
     class PokedexView(discord.ui.View):
-      def __init__(self, owner_id: int, rows_data: List[str], fetcher, page_size: int = 15, page_index: int = 0, dupe_mode: str = None):
+      def __init__(self, owner_id: int, rows_data: List[str], fetcher, page_size: int = 15, page_index: int = 0, dupe_mode: str = None, sort_key: str = None, direction_key: str = None):
         super().__init__(timeout=120)
         self.owner_id = owner_id
         self.page_size = page_size
@@ -312,6 +314,8 @@ async def pokedex(
         self.rows: List[str] = rows_data
         self.fetch_rows = fetcher
         self.dupe_mode = dupe_mode or duplicates
+        self.sort_key = sort_key or sort_by
+        self.direction_key = direction_key or direction
         self.total_pages = max(1, (len(self.rows) + page_size - 1) // page_size)
         self.message: discord.Message | None = None
         # Initialize select options if pages are reasonable
@@ -321,6 +325,9 @@ async def pokedex(
           self.children[-1].options = options
         # Duplicates select (always available)
         self.add_item(self.DuplicatesSelect(self))
+        # Sort and Direction selects (always available)
+        self.add_item(self.SortSelect(self))
+        self.add_item(self.DirectionSelect(self))
         self._sync_buttons()
 
       def _sync_buttons(self):
@@ -363,12 +370,12 @@ async def pokedex(
           return
         # Fetch latest rows and recreate a fresh view preserving the current page index
         try:
-          new_rows = await self.fetch_rows()
+          new_rows = await self.fetch_rows(self.dupe_mode, self.sort_key, self.direction_key == "asc")
         except Exception:
           new_rows = self.rows
         total_pages_new = max(1, (len(new_rows) + self.page_size - 1) // self.page_size)
         new_index = min(self.page_index, total_pages_new - 1)
-        new_view = PokedexView(owner_id=self.owner_id, rows_data=new_rows, fetcher=self.fetch_rows, page_size=self.page_size, page_index=new_index)
+        new_view = PokedexView(owner_id=self.owner_id, rows_data=new_rows, fetcher=self.fetch_rows, page_size=self.page_size, page_index=new_index, dupe_mode=self.dupe_mode, sort_key=self.sort_key, direction_key=self.direction_key)
         await interaction.response.edit_message(content=render_page(new_rows, new_index, self.page_size), view=new_view)
 
       class PageSelect(discord.ui.Select):
@@ -424,6 +431,73 @@ async def pokedex(
           self.parent_view._sync_buttons()
           await interaction.response.edit_message(content=render_page(self.parent_view.rows, self.parent_view.page_index, self.parent_view.page_size), view=self.parent_view)
 
+      class SortSelect(discord.ui.Select):
+        def __init__(self, parent_view: 'PokedexView'):
+          options = [
+            discord.SelectOption(label="Sort: Number", value="number"),
+            discord.SelectOption(label="Sort: Name", value="name"),
+            discord.SelectOption(label="Sort: Caught Date", value="caught_at"),
+          ]
+          super().__init__(placeholder="Sort By", min_values=1, max_values=1, options=options)
+          self.parent_view = parent_view
+          for opt in self.options:
+            opt.default = (opt.value == self.parent_view.sort_key)
+
+        async def callback(self, interaction: discord.Interaction):
+          if not await self.parent_view._ensure_owner(interaction):
+            return
+          key = self.values[0]
+          try:
+            new_rows = await self.parent_view.fetch_rows(self.parent_view.dupe_mode, key, self.parent_view.direction_key == "asc")
+          except Exception:
+            new_rows = self.parent_view.rows
+          self.parent_view.sort_key = key
+          self.parent_view.rows = new_rows
+          self.parent_view.page_index = 0
+          self.parent_view.total_pages = max(1, (len(new_rows) + self.parent_view.page_size - 1) // self.parent_view.page_size)
+          # Update defaults
+          for opt in self.options:
+            opt.default = (opt.value == key)
+          # Update page select options
+          for child in self.parent_view.children:
+            if isinstance(child, discord.ui.Select) and getattr(child, 'placeholder', '') == "Jump to page":
+              child.options = [discord.SelectOption(label=f"Page {i+1}", value=str(i)) for i in range(self.parent_view.total_pages)]
+          self.parent_view._sync_buttons()
+          await interaction.response.edit_message(content=render_page(self.parent_view.rows, self.parent_view.page_index, self.parent_view.page_size), view=self.parent_view)
+
+      class DirectionSelect(discord.ui.Select):
+        def __init__(self, parent_view: 'PokedexView'):
+          options = [
+            discord.SelectOption(label="Direction: Ascending", value="asc"),
+            discord.SelectOption(label="Direction: Descending", value="desc"),
+          ]
+          super().__init__(placeholder="Direction", min_values=1, max_values=1, options=options)
+          self.parent_view = parent_view
+          for opt in self.options:
+            opt.default = (opt.value == self.parent_view.direction_key)
+
+        async def callback(self, interaction: discord.Interaction):
+          if not await self.parent_view._ensure_owner(interaction):
+            return
+          dirv = self.values[0]
+          asc_flag = (dirv == "asc")
+          try:
+            new_rows = await self.parent_view.fetch_rows(self.parent_view.dupe_mode, self.parent_view.sort_key, asc_flag)
+          except Exception:
+            new_rows = self.parent_view.rows
+          self.parent_view.direction_key = dirv
+          self.parent_view.rows = new_rows
+          self.parent_view.page_index = 0
+          self.parent_view.total_pages = max(1, (len(new_rows) + self.parent_view.page_size - 1) // self.parent_view.page_size)
+          for opt in self.options:
+            opt.default = (opt.value == dirv)
+          # Update page select options
+          for child in self.parent_view.children:
+            if isinstance(child, discord.ui.Select) and getattr(child, 'placeholder', '') == "Jump to page":
+              child.options = [discord.SelectOption(label=f"Page {i+1}", value=str(i)) for i in range(self.parent_view.total_pages)]
+          self.parent_view._sync_buttons()
+          await interaction.response.edit_message(content=render_page(self.parent_view.rows, self.parent_view.page_index, self.parent_view.page_size), view=self.parent_view)
+
       async def on_timeout(self) -> None:
         # Disable all controls when view times out
         for child in self.children:
@@ -434,7 +508,7 @@ async def pokedex(
           except Exception:
             pass
 
-    view = PokedexView(owner_id=interaction.user.id, rows_data=rows, fetcher=fetch_rows, page_size=15, dupe_mode=duplicates)
+    view = PokedexView(owner_id=interaction.user.id, rows_data=rows, fetcher=fetch_rows, page_size=15, dupe_mode=duplicates, sort_key=sort_by, direction_key=direction)
     await interaction.response.send_message(render_page(rows, view.page_index, view.page_size), view=view, ephemeral=True)
     try:
       sent = await interaction.original_response()
