@@ -11,6 +11,7 @@ from discord import app_commands
 from datetime import datetime
 import pytz
 from collections import Counter
+from typing import List
 
 load_dotenv()
 
@@ -45,7 +46,6 @@ async def on_message(message):
   # Do not reply to comments from these users, including itself (client.user)
   blocked_users = [ client.user ]
 
-
   if message.author in blocked_users:
     return
   
@@ -65,7 +65,7 @@ async def on_message(message):
       msg = get_random_quote('./gandalfQuotes.json').format(message)
       await message.channel.send(str(client.get_emoji(917135652171161681)) + " Gandalf: " + msg)
 
-  if random.randrange(1, int(os.environ['pokemonSpawnRate'])) == 1:  
+  if random.randrange(1, int(os.environ['pokemonSpawnRate'])) == 1:
     await spawnPokemon(message)     
 
   await mongoDBAPI.insertMessage("Messages", "TNNGBOT", "JacobTEST", message)
@@ -255,43 +255,92 @@ async def pokedex(
       # Count occurrences by number
       counts = Counter(p["number"] for p in caught_pokemon)
       caught_pokemon = [p for p in caught_pokemon if counts[p["number"]] > 1]
-    # Build rows and send in multiple messages if needed (Discord 2000-char limit)
+    # Build paginated view/UI components
     header = f"   {'No.':<5} {'Name':<15} {'Caught On'}\n" + ("-" * 49) + "\n"
     local_tz = pytz.timezone("US/Eastern")
 
-    rows = []
+    rows: List[str] = []
     for p in caught_pokemon:
       dt = datetime.fromisoformat(p["caught_at"]) if "caught_at" in p and p["caught_at"] else datetime.now()
       dt_local = dt.astimezone(local_tz)
       formatted_date = dt_local.strftime("%m/%d/%Y %I:%M %p")
       rows.append(f"◓  {p['number']:<5} {p['name'].capitalize():<15} {formatted_date} EST\n")
 
-    # Function to wrap a set of rows into a code block table
-    def wrap_table(content_rows):
-      return "```" + header + "".join(content_rows) + "```"
-
-    # Chunk rows so that each resulting message stays under Discord's limit
-    MAX_MESSAGE_LEN = 2000
     prefix = f"**{interaction.user.display_name}'s Pokedex**\n"
-    chunks = []
-    current_rows = []
 
-    for row in rows:
-      prospective = prefix + wrap_table(current_rows + [row])
-      if len(prospective) > MAX_MESSAGE_LEN and current_rows:
-        chunks.append(prefix + wrap_table(current_rows))
-        current_rows = [row]
-      else:
-        current_rows.append(row)
+    # Helper to render a single page into a code block
+    def render_page(page_index: int, page_size: int) -> str:
+      start = page_index * page_size
+      end = start + page_size
+      page_rows = rows[start:end]
+      total_pages = max(1, (len(rows) + page_size - 1) // page_size)
+      footer = f"\nPage {page_index + 1}/{total_pages}\n"
+      return prefix + "```" + header + "".join(page_rows) + footer + "```"
 
-    if current_rows:
-      chunks.append(prefix + wrap_table(current_rows))
+    class PokedexView(discord.ui.View):
+      def __init__(self, owner_id: int, page_size: int = 15):
+        super().__init__(timeout=120)
+        self.owner_id = owner_id
+        self.page_size = page_size
+        self.page_index = 0
+        self.total_pages = max(1, (len(rows) + page_size - 1) // page_size)
+        # Initialize select options if pages are reasonable
+        if self.total_pages <= 25:
+          options = [discord.SelectOption(label=f"Page {i+1}", value=str(i)) for i in range(self.total_pages)]
+          self.add_item(self.PageSelect(self))
+          self.children[-1].options = options
+        self._sync_buttons()
 
-    # Send first chunk as the initial response, remaining as follow-ups
-    if chunks:
-      await interaction.response.send_message(chunks[0], ephemeral=True)
-      for extra in chunks[1:]:
-        await interaction.followup.send(extra, ephemeral=True)
+      def _sync_buttons(self):
+        for child in self.children:
+          if isinstance(child, discord.ui.Button):
+            if child.custom_id == "prev":
+              child.disabled = self.page_index <= 0
+            if child.custom_id == "next":
+              child.disabled = self.page_index >= (self.total_pages - 1)
+
+      async def _ensure_owner(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.owner_id:
+          await interaction.response.send_message("You can't control someone else's Pokedex.", ephemeral=True)
+          return False
+        return True
+
+      @discord.ui.button(label="Prev", style=discord.ButtonStyle.secondary, custom_id="prev")
+      async def prev(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not await self._ensure_owner(interaction):
+          return
+        if self.page_index > 0:
+          self.page_index -= 1
+        self._sync_buttons()
+        await interaction.response.edit_message(content=render_page(self.page_index, self.page_size), view=self)
+
+      @discord.ui.button(label="Next", style=discord.ButtonStyle.secondary, custom_id="next")
+      async def next(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not await self._ensure_owner(interaction):
+          return
+        if self.page_index < (self.total_pages - 1):
+          self.page_index += 1
+        self._sync_buttons()
+        await interaction.response.edit_message(content=render_page(self.page_index, self.page_size), view=self)
+
+      class PageSelect(discord.ui.Select):
+        def __init__(self, parent_view: 'PokedexView'):
+          super().__init__(placeholder="Jump to page")
+          self.parent_view = parent_view
+
+        async def callback(self, interaction: discord.Interaction):
+          if not await self.parent_view._ensure_owner(interaction):
+            return
+          try:
+            idx = int(self.values[0])
+          except Exception:
+            idx = 0
+          self.parent_view.page_index = min(max(0, idx), self.parent_view.total_pages - 1)
+          self.parent_view._sync_buttons()
+          await interaction.response.edit_message(content=render_page(self.parent_view.page_index, self.parent_view.page_size), view=self.parent_view)
+
+    view = PokedexView(owner_id=interaction.user.id, page_size=15)
+    await interaction.response.send_message(render_page(view.page_index, view.page_size), view=view, ephemeral=True)
   else:
     await interaction.response.send_message(
       "You haven't caught any Pokemon yet! React to a Pokemon with a <:pokeball:1419845300742520964> to catch it!",
