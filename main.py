@@ -65,12 +65,16 @@ async def on_message(message):
       msg = get_random_quote('./gandalfQuotes.json').format(message)
       await message.channel.send(str(client.get_emoji(917135652171161681)) + " Gandalf: " + msg)
 
-  if random.randrange(1, int(os.environ['pokemonSpawnRate'])) == 1:
+  #if random.randrange(1, int(os.environ['pokemonSpawnRate'])) == 1:
+  pokerand = random.randrange(1, int(os.environ['pokemonSpawnRate'])) 
+  if pokerand == 1:
+    print("main - Triggered pokemon spawn")
     await spawnPokemon(message)     
 
   await mongoDBAPI.insertMessage("Messages", "TNNGBOT", "JacobTEST", message)
 
 async def spawnPokemon(message, pokemon_number=None, catch_count=None):
+  print("main - Prepping pokemon spawn")
   if pokemon_number is None:
     pokePool: list[int] = []
     with open('./pokemonPool.json', 'r') as pokePoolJson:
@@ -275,7 +279,7 @@ async def pokedex(
       total_caught = len(fresh)
       unique_count = len(name_counts.keys())
       duplicates_total = sum(max(0, c - 1) for c in name_counts.values())
-      totals_line = f"Total Caught: {total_caught}, Unique: {unique_count}, Duplicates: {duplicates_total}"
+      totals_line = f"Total Caught: `{total_caught}`, Unique: `{unique_count}`, Duplicates: `{duplicates_total}`"
       # Apply duplicates filter again
       mode = (dupe_mode or duplicates)
       if mode == "hide":
@@ -407,7 +411,7 @@ async def pokedex(
           self.parent_view.page_index = min(max(0, idx), self.parent_view.total_pages - 1)
           self.parent_view.last_loaded = now_eastern_str()
           self.parent_view._sync_buttons()
-          await interaction.response.edit_message(content=render_page(self.parent_view.rows, self.parent_view.page_index, self.parent_view.page_size, self.parent_view.last_loaded), view=self.parent_view)
+          await interaction.response.edit_message(content=render_page(self.parent_view.rows, self.parent_view.page_index, self.parent_view.page_size, self.parent_view.last_loaded, self.parent_view.totals_line), view=self.parent_view)
 
       class DuplicatesSelect(discord.ui.Select):
         def __init__(self, parent_view: 'PokedexView'):
@@ -446,7 +450,7 @@ async def pokedex(
           for opt in self.options:
             opt.default = (opt.value == mode)
           self.parent_view._sync_buttons()
-          await interaction.response.edit_message(content=render_page(self.parent_view.rows, self.parent_view.page_index, self.parent_view.page_size, self.parent_view.last_loaded), view=self.parent_view)
+          await interaction.response.edit_message(content=render_page(self.parent_view.rows, self.parent_view.page_index, self.parent_view.page_size, self.parent_view.last_loaded, self.parent_view.totals_line), view=self.parent_view)
 
       class SortSelect(discord.ui.Select):
         def __init__(self, parent_view: 'PokedexView'):
@@ -482,7 +486,7 @@ async def pokedex(
             if isinstance(child, discord.ui.Select) and getattr(child, 'placeholder', '') == "Jump to page":
               child.options = [discord.SelectOption(label=f"Page {i+1}", value=str(i)) for i in range(self.parent_view.total_pages)]
           self.parent_view._sync_buttons()
-          await interaction.response.edit_message(content=render_page(self.parent_view.rows, self.parent_view.page_index, self.parent_view.page_size, self.parent_view.last_loaded), view=self.parent_view)
+          await interaction.response.edit_message(content=render_page(self.parent_view.rows, self.parent_view.page_index, self.parent_view.page_size, self.parent_view.last_loaded, self.parent_view.totals_line), view=self.parent_view)
 
       class DirectionSelect(discord.ui.Select):
         def __init__(self, parent_view: 'PokedexView'):
@@ -517,7 +521,7 @@ async def pokedex(
             if isinstance(child, discord.ui.Select) and getattr(child, 'placeholder', '') == "Jump to page":
               child.options = [discord.SelectOption(label=f"Page {i+1}", value=str(i)) for i in range(self.parent_view.total_pages)]
           self.parent_view._sync_buttons()
-          await interaction.response.edit_message(content=render_page(self.parent_view.rows, self.parent_view.page_index, self.parent_view.page_size, self.parent_view.last_loaded), view=self.parent_view)
+          await interaction.response.edit_message(content=render_page(self.parent_view.rows, self.parent_view.page_index, self.parent_view.page_size, self.parent_view.last_loaded, self.parent_view.totals_line), view=self.parent_view)
 
       async def on_timeout(self) -> None:
         # Disable all controls when view times out
