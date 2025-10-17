@@ -27,6 +27,7 @@ async def on_ready():
   print('We have logged in as {0.user}'.format(client))
   print(f"pokemonSpawnRates = {os.environ['pokemonSpawnRate']}")
   print(f"pokemonMaxAttempts = {os.environ['pokemonMaxAttempts']}")
+
   try:
     synced = await client.tree.sync()
     print(f'Synced {len(synced)} command(s)')
@@ -65,16 +66,12 @@ async def on_message(message):
       msg = get_random_quote('./gandalfQuotes.json').format(message)
       await message.channel.send(str(client.get_emoji(917135652171161681)) + " Gandalf: " + msg)
 
-  #if random.randrange(1, int(os.environ['pokemonSpawnRate'])) == 1:
-  pokerand = random.randrange(1, int(os.environ['pokemonSpawnRate'])) 
-  if pokerand == 1:
-    print("main - Triggered pokemon spawn")
+  if random.randrange(1, int(os.environ['pokemonSpawnRate'])) == 1:
     await spawnPokemon(message)     
 
   await mongoDBAPI.insertMessage("Messages", "TNNGBOT", "JacobTEST", message)
 
 async def spawnPokemon(message, pokemon_number=None, catch_count=None):
-  print("main - Prepping pokemon spawn")
   if pokemon_number is None:
     pokePool: list[int] = []
     with open('./pokemonPool.json', 'r') as pokePoolJson:
@@ -260,7 +257,9 @@ async def pokedex(
       counts = Counter(p["number"] for p in caught_pokemon)
       caught_pokemon = [p for p in caught_pokemon if counts[p["number"]] > 1]
     # Build paginated view/UI components
-    header = f"   {'No.':<5} {'Name':<15} {'Caught On'}\n" + ("-" * 49) + "\n"
+    # header = f"   {'No.':<5} {'Name':<15} {'Caught On'}\n" + ("-" * 49) + "\n"
+    # Shrink the table width for mobile users
+    header = f"{'No.':<3} {'Name':<11} {'Caught On'}\n" + ("-" * 39) + "\n"
     local_tz = pytz.timezone("US/Eastern")
 
     prefix = f"**{interaction.user.display_name}'s Pokedex**\n"
@@ -300,7 +299,9 @@ async def pokedex(
         dt = datetime.fromisoformat(p["caught_at"]) if "caught_at" in p and p["caught_at"] else datetime.now()
         dt_local = dt.astimezone(local_tz)
         formatted_date = dt_local.strftime("%m/%d/%Y %I:%M %p")
-        rows_local.append(f"◓  {p['number']:<5} {p['name'].capitalize():<15} {formatted_date} EST\n")
+        # rows_local.append(f"◓  {p['number']:<5} {p['name'].capitalize():<15} {formatted_date} EST\n")
+        # Shrink the table width for mobile users
+        rows_local.append(f"{p['number']:<3} {p['name'].capitalize():<11} {formatted_date} EST\n")
       return rows_local, totals_line
 
     # Initial rows
