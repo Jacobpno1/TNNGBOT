@@ -71,6 +71,7 @@ async def on_message(message):
   await mongoDBAPI.insertMessage("Messages", "TNNGBOT", "JacobTEST", message)
 
 async def spawnPokemon(message, pokemon_number=None, catch_count=None):
+  print("main - Prepping pokemon spawn")
   if pokemon_number is None:
     pokePool: list[int] = []
     with open('./pokemonPool.json', 'r') as pokePoolJson:
@@ -259,36 +260,67 @@ async def pokedex(
     header = f"   {'No.':<5} {'Name':<15} {'Caught On'}\n" + ("-" * 49) + "\n"
     local_tz = pytz.timezone("US/Eastern")
 
-    rows: List[str] = []
-    for p in caught_pokemon:
-      dt = datetime.fromisoformat(p["caught_at"]) if "caught_at" in p and p["caught_at"] else datetime.now()
-      dt_local = dt.astimezone(local_tz)
-      formatted_date = dt_local.strftime("%m/%d/%Y %I:%M %p")
-      rows.append(f"◓  {p['number']:<5} {p['name'].capitalize():<15} {formatted_date} EST\n")
-
     prefix = f"**{interaction.user.display_name}'s Pokedex**\n"
 
+    async def fetch_rows(dupe_mode: str = None) -> List[str]:
+      fresh = await mongoDBAPI.getMyCaughtPokemon(
+        "Pokemon", "TNNGBOT", interaction.user, sort_by=sort_by, ascending=(direction == "asc")
+      )
+      if not fresh:
+        return []
+      # Apply duplicates filter again
+      mode = (dupe_mode or duplicates)
+      if mode == "hide":
+        seen = set()
+        filtered = []
+        for p in fresh:
+          if p["number"] not in seen:
+            seen.add(p["number"])
+            filtered.append(p)
+        fresh = filtered
+      elif mode == "only":
+        from collections import Counter as _Counter
+        counts = _Counter(p["number"] for p in fresh)
+        fresh = [p for p in fresh if counts[p["number"]] > 1]
+
+      rows_local: List[str] = []
+      for p in fresh:
+        dt = datetime.fromisoformat(p["caught_at"]) if "caught_at" in p and p["caught_at"] else datetime.now()
+        dt_local = dt.astimezone(local_tz)
+        formatted_date = dt_local.strftime("%m/%d/%Y %I:%M %p")
+        rows_local.append(f"◓  {p['number']:<5} {p['name'].capitalize():<15} {formatted_date} EST\n")
+      return rows_local
+
+    # Initial rows
+    rows: List[str] = await fetch_rows()
+
     # Helper to render a single page into a code block
-    def render_page(page_index: int, page_size: int) -> str:
+    def render_page(current_rows: List[str], page_index: int, page_size: int) -> str:
       start = page_index * page_size
       end = start + page_size
-      page_rows = rows[start:end]
-      total_pages = max(1, (len(rows) + page_size - 1) // page_size)
+      page_rows = current_rows[start:end]
+      total_pages = max(1, (len(current_rows) + page_size - 1) // page_size)
       footer = f"\nPage {page_index + 1}/{total_pages}\n"
       return prefix + "```" + header + "".join(page_rows) + footer + "```"
 
     class PokedexView(discord.ui.View):
-      def __init__(self, owner_id: int, page_size: int = 15):
+      def __init__(self, owner_id: int, rows_data: List[str], fetcher, page_size: int = 15, page_index: int = 0, dupe_mode: str = None):
         super().__init__(timeout=120)
         self.owner_id = owner_id
         self.page_size = page_size
-        self.page_index = 0
-        self.total_pages = max(1, (len(rows) + page_size - 1) // page_size)
+        self.page_index = page_index
+        self.rows: List[str] = rows_data
+        self.fetch_rows = fetcher
+        self.dupe_mode = dupe_mode or duplicates
+        self.total_pages = max(1, (len(self.rows) + page_size - 1) // page_size)
+        self.message: discord.Message | None = None
         # Initialize select options if pages are reasonable
         if self.total_pages <= 25:
           options = [discord.SelectOption(label=f"Page {i+1}", value=str(i)) for i in range(self.total_pages)]
           self.add_item(self.PageSelect(self))
           self.children[-1].options = options
+        # Duplicates select (always available)
+        self.add_item(self.DuplicatesSelect(self))
         self._sync_buttons()
 
       def _sync_buttons(self):
@@ -298,6 +330,8 @@ async def pokedex(
               child.disabled = self.page_index <= 0
             if child.custom_id == "next":
               child.disabled = self.page_index >= (self.total_pages - 1)
+            if child.custom_id == "refresh":
+              child.disabled = False
 
       async def _ensure_owner(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.owner_id:
@@ -312,7 +346,7 @@ async def pokedex(
         if self.page_index > 0:
           self.page_index -= 1
         self._sync_buttons()
-        await interaction.response.edit_message(content=render_page(self.page_index, self.page_size), view=self)
+        await interaction.response.edit_message(content=render_page(self.rows, self.page_index, self.page_size), view=self)
 
       @discord.ui.button(label="Next", style=discord.ButtonStyle.secondary, custom_id="next")
       async def next(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -321,7 +355,21 @@ async def pokedex(
         if self.page_index < (self.total_pages - 1):
           self.page_index += 1
         self._sync_buttons()
-        await interaction.response.edit_message(content=render_page(self.page_index, self.page_size), view=self)
+        await interaction.response.edit_message(content=render_page(self.rows, self.page_index, self.page_size), view=self)
+
+      @discord.ui.button(label="Refresh", style=discord.ButtonStyle.primary, custom_id="refresh")
+      async def refresh(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not await self._ensure_owner(interaction):
+          return
+        # Fetch latest rows and recreate a fresh view preserving the current page index
+        try:
+          new_rows = await self.fetch_rows()
+        except Exception:
+          new_rows = self.rows
+        total_pages_new = max(1, (len(new_rows) + self.page_size - 1) // self.page_size)
+        new_index = min(self.page_index, total_pages_new - 1)
+        new_view = PokedexView(owner_id=self.owner_id, rows_data=new_rows, fetcher=self.fetch_rows, page_size=self.page_size, page_index=new_index)
+        await interaction.response.edit_message(content=render_page(new_rows, new_index, self.page_size), view=new_view)
 
       class PageSelect(discord.ui.Select):
         def __init__(self, parent_view: 'PokedexView'):
@@ -337,10 +385,62 @@ async def pokedex(
             idx = 0
           self.parent_view.page_index = min(max(0, idx), self.parent_view.total_pages - 1)
           self.parent_view._sync_buttons()
-          await interaction.response.edit_message(content=render_page(self.parent_view.page_index, self.parent_view.page_size), view=self.parent_view)
+          await interaction.response.edit_message(content=render_page(self.parent_view.rows, self.parent_view.page_index, self.parent_view.page_size), view=self.parent_view)
 
-    view = PokedexView(owner_id=interaction.user.id, page_size=15)
-    await interaction.response.send_message(render_page(view.page_index, view.page_size), view=view, ephemeral=True)
+      class DuplicatesSelect(discord.ui.Select):
+        def __init__(self, parent_view: 'PokedexView'):
+          options = [
+            discord.SelectOption(label="Duplicates: Show", value="show"),
+            discord.SelectOption(label="Duplicates: Hide", value="hide"),
+            discord.SelectOption(label="Duplicates: Only", value="only"),
+          ]
+          super().__init__(placeholder="Duplicates", min_values=1, max_values=1, options=options)
+          self.parent_view = parent_view
+          # Pre-select current mode
+          for opt in self.options:
+            opt.default = (opt.value == self.parent_view.dupe_mode)
+
+        async def callback(self, interaction: discord.Interaction):
+          if not await self.parent_view._ensure_owner(interaction):
+            return
+          mode = self.values[0]
+          try:
+            new_rows = await self.parent_view.fetch_rows(mode)
+          except Exception:
+            new_rows = self.parent_view.rows
+          self.parent_view.dupe_mode = mode
+          self.parent_view.rows = new_rows
+          self.parent_view.page_index = 0
+          self.parent_view.total_pages = max(1, (len(new_rows) + self.parent_view.page_size - 1) // self.parent_view.page_size)
+          # Rebuild page selector if present and update selection defaults
+          for child in self.parent_view.children:
+            if isinstance(child, discord.ui.Select) and child is not self:
+              # PageSelect - rebuild options
+              if hasattr(child, 'placeholder') and child.placeholder == "Jump to page":
+                child.options = [discord.SelectOption(label=f"Page {i+1}", value=str(i)) for i in range(self.parent_view.total_pages)]
+          # Update defaults on duplicates select
+          for opt in self.options:
+            opt.default = (opt.value == mode)
+          self.parent_view._sync_buttons()
+          await interaction.response.edit_message(content=render_page(self.parent_view.rows, self.parent_view.page_index, self.parent_view.page_size), view=self.parent_view)
+
+      async def on_timeout(self) -> None:
+        # Disable all controls when view times out
+        for child in self.children:
+          child.disabled = True
+        if self.message is not None:
+          try:
+            await self.message.edit(view=self)
+          except Exception:
+            pass
+
+    view = PokedexView(owner_id=interaction.user.id, rows_data=rows, fetcher=fetch_rows, page_size=15, dupe_mode=duplicates)
+    await interaction.response.send_message(render_page(rows, view.page_index, view.page_size), view=view, ephemeral=True)
+    try:
+      sent = await interaction.original_response()
+      view.message = sent
+    except Exception:
+      pass
   else:
     await interaction.response.send_message(
       "You haven't caught any Pokemon yet! React to a Pokemon with a <:pokeball:1419845300742520964> to catch it!",
