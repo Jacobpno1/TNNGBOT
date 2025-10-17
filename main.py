@@ -24,6 +24,8 @@ client = commands.Bot(command_prefix='!', intents=intents);
 @client.event
 async def on_ready():
   print('We have logged in as {0.user}'.format(client))
+  print(f"pokemonSpawnRates = {os.environ['pokemonSpawnRate']}")
+  print(f"pokemonMaxAttempts = {os.environ['pokemonMaxAttempts']}")
   try:
     synced = await client.tree.sync()
     print(f'Synced {len(synced)} command(s)')
@@ -43,9 +45,10 @@ async def on_message(message):
   # Do not reply to comments from these users, including itself (client.user)
   blocked_users = [ client.user ]
 
+
   if message.author in blocked_users:
     return
-
+  
   if client.user.mentioned_in(message):
     if message.content.lower().find('bobbyb') != -1:
       print("Replied to message of user '{}' in guild '{}' / channel '{}'".format(message.author, message.guild, message.channel))
@@ -62,7 +65,7 @@ async def on_message(message):
       msg = get_random_quote('./gandalfQuotes.json').format(message)
       await message.channel.send(str(client.get_emoji(917135652171161681)) + " Gandalf: " + msg)
 
-  if random.randrange(1, int(os.environ['pokemonSpawnRate'])) == 1:
+  if random.randrange(1, int(os.environ['pokemonSpawnRate'])) == 1:  
     await spawnPokemon(message)     
 
   await mongoDBAPI.insertMessage("Messages", "TNNGBOT", "JacobTEST", message)
@@ -252,27 +255,43 @@ async def pokedex(
       # Count occurrences by number
       counts = Counter(p["number"] for p in caught_pokemon)
       caught_pokemon = [p for p in caught_pokemon if counts[p["number"]] > 1]
-    # Build a table header
-    table = "```"
-    table += f"   {'No.':<5} {'Name':<15} {'Caught On'}\n"
-    table += "-" * 49 + "\n"
+    # Build rows and send in multiple messages if needed (Discord 2000-char limit)
+    header = f"   {'No.':<5} {'Name':<15} {'Caught On'}\n" + ("-" * 49) + "\n"
     local_tz = pytz.timezone("US/Eastern")
 
-    # Fill rows
+    rows = []
     for p in caught_pokemon:
-      dt = datetime.fromisoformat(p["caught_at"])
+      dt = datetime.fromisoformat(p["caught_at"]) if "caught_at" in p and p["caught_at"] else datetime.now()
       dt_local = dt.astimezone(local_tz)
       formatted_date = dt_local.strftime("%m/%d/%Y %I:%M %p")
+      rows.append(f"◓  {p['number']:<5} {p['name'].capitalize():<15} {formatted_date} EST\n")
 
-      table += f"◓  {p['number']:<5} {p['name'].capitalize():<15} {formatted_date} EST\n"
-      # table += f"◓ {p['number']:<5} {p['name'].capitalize():<15} {p['created_at']}\n"
+    # Function to wrap a set of rows into a code block table
+    def wrap_table(content_rows):
+      return "```" + header + "".join(content_rows) + "```"
 
-    table += "```"
+    # Chunk rows so that each resulting message stays under Discord's limit
+    MAX_MESSAGE_LEN = 2000
+    prefix = f"**{interaction.user.display_name}'s Pokedex**\n"
+    chunks = []
+    current_rows = []
 
-    await interaction.response.send_message(
-      f"**{interaction.user.display_name}'s Pokedex**\n{table}",
-      ephemeral=True
-    )
+    for row in rows:
+      prospective = prefix + wrap_table(current_rows + [row])
+      if len(prospective) > MAX_MESSAGE_LEN and current_rows:
+        chunks.append(prefix + wrap_table(current_rows))
+        current_rows = [row]
+      else:
+        current_rows.append(row)
+
+    if current_rows:
+      chunks.append(prefix + wrap_table(current_rows))
+
+    # Send first chunk as the initial response, remaining as follow-ups
+    if chunks:
+      await interaction.response.send_message(chunks[0], ephemeral=True)
+      for extra in chunks[1:]:
+        await interaction.followup.send(extra, ephemeral=True)
   else:
     await interaction.response.send_message(
       "You haven't caught any Pokemon yet! React to a Pokemon with a <:pokeball:1419845300742520964> to catch it!",
