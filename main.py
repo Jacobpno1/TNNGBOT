@@ -261,14 +261,21 @@ async def pokedex(
 
     prefix = f"**{interaction.user.display_name}'s Pokedex**\n"
 
-    async def fetch_rows(dupe_mode: str = None, sort_key: str = None, ascending_flag: bool = None) -> List[str]:
+    async def fetch_rows(dupe_mode: str = None, sort_key: str = None, ascending_flag: bool = None):
       effective_sort = sort_key or sort_by
       effective_asc = (direction == "asc") if ascending_flag is None else ascending_flag
       fresh = await mongoDBAPI.getMyCaughtPokemon(
         "Pokemon", "TNNGBOT", interaction.user, sort_by=effective_sort, ascending=effective_asc
       )
       if not fresh:
-        return []
+        return [], "Total Caught: 0, Unique: 0, Duplicates: 0"
+      # Compute totals from full list (by name)
+      from collections import Counter as _Counter
+      name_counts = _Counter(p["name"] for p in fresh)
+      total_caught = len(fresh)
+      unique_count = len(name_counts.keys())
+      duplicates_total = sum(max(0, c - 1) for c in name_counts.values())
+      totals_line = f"Total Caught: {total_caught}, Unique: {unique_count}, Duplicates: {duplicates_total}"
       # Apply duplicates filter again
       mode = (dupe_mode or duplicates)
       if mode == "hide":
@@ -290,10 +297,10 @@ async def pokedex(
         dt_local = dt.astimezone(local_tz)
         formatted_date = dt_local.strftime("%m/%d/%Y %I:%M %p")
         rows_local.append(f"◓  {p['number']:<5} {p['name'].capitalize():<15} {formatted_date} EST\n")
-      return rows_local
+      return rows_local, totals_line
 
     # Initial rows
-    rows: List[str] = await fetch_rows()
+    rows, totals_line = await fetch_rows()
     # Initial last-loaded timestamp (Eastern)
     def now_eastern_str() -> str:
       now_local = datetime.now(local_tz)
@@ -301,16 +308,16 @@ async def pokedex(
     initial_last_loaded = now_eastern_str()
 
     # Helper to render a single page into a code block
-    def render_page(current_rows: List[str], page_index: int, page_size: int, last_loaded: str) -> str:
+    def render_page(current_rows: List[str], page_index: int, page_size: int, last_loaded: str, totals: str) -> str:
       start = page_index * page_size
       end = start + page_size
       page_rows = current_rows[start:end]
       total_pages = max(1, (len(current_rows) + page_size - 1) // page_size)
       footer = f"\nLast loaded: {last_loaded}\nPage {page_index + 1}/{total_pages}\n"
-      return prefix + "```" + header + "".join(page_rows) + footer + "```"
+      return prefix + totals + "\n" + "```" + header + "".join(page_rows) + footer + "```"
 
     class PokedexView(discord.ui.View):
-      def __init__(self, owner_id: int, rows_data: List[str], fetcher, page_size: int = 15, page_index: int = 0, dupe_mode: str = None, sort_key: str = None, direction_key: str = None, last_loaded: str = ""):
+      def __init__(self, owner_id: int, rows_data: List[str], fetcher, page_size: int = 15, page_index: int = 0, dupe_mode: str = None, sort_key: str = None, direction_key: str = None, last_loaded: str = "", totals: str = "Total Caught: 0, Unique: 0, Duplicates: 0"):
         super().__init__(timeout=120)
         self.owner_id = owner_id
         self.page_size = page_size
@@ -321,6 +328,7 @@ async def pokedex(
         self.sort_key = sort_key or sort_by
         self.direction_key = direction_key or direction
         self.last_loaded = last_loaded
+        self.totals_line = totals
         self.total_pages = max(1, (len(self.rows) + page_size - 1) // page_size)
         self.message: discord.Message | None = None
         # Initialize select options if pages are reasonable
@@ -358,7 +366,7 @@ async def pokedex(
         if self.page_index > 0:
           self.page_index -= 1
         self._sync_buttons()
-        await interaction.response.edit_message(content=render_page(self.rows, self.page_index, self.page_size, self.last_loaded), view=self)
+        await interaction.response.edit_message(content=render_page(self.rows, self.page_index, self.page_size, self.last_loaded, self.totals_line), view=self)
 
       @discord.ui.button(label="Next", style=discord.ButtonStyle.secondary, custom_id="next")
       async def next(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -367,7 +375,7 @@ async def pokedex(
         if self.page_index < (self.total_pages - 1):
           self.page_index += 1
         self._sync_buttons()
-        await interaction.response.edit_message(content=render_page(self.rows, self.page_index, self.page_size, self.last_loaded), view=self)
+        await interaction.response.edit_message(content=render_page(self.rows, self.page_index, self.page_size, self.last_loaded, self.totals_line), view=self)
 
       @discord.ui.button(label="Refresh", style=discord.ButtonStyle.primary, custom_id="refresh")
       async def refresh(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -375,14 +383,14 @@ async def pokedex(
           return
         # Fetch latest rows and recreate a fresh view preserving the current page index
         try:
-          new_rows = await self.fetch_rows(self.dupe_mode, self.sort_key, self.direction_key == "asc")
+          new_rows, new_totals = await self.fetch_rows(self.dupe_mode, self.sort_key, self.direction_key == "asc")
         except Exception:
-          new_rows = self.rows
+          new_rows, new_totals = self.rows, self.totals_line
         new_last_loaded = now_eastern_str()
         total_pages_new = max(1, (len(new_rows) + self.page_size - 1) // self.page_size)
         new_index = min(self.page_index, total_pages_new - 1)
-        new_view = PokedexView(owner_id=self.owner_id, rows_data=new_rows, fetcher=self.fetch_rows, page_size=self.page_size, page_index=new_index, dupe_mode=self.dupe_mode, sort_key=self.sort_key, direction_key=self.direction_key, last_loaded=new_last_loaded)
-        await interaction.response.edit_message(content=render_page(new_rows, new_index, self.page_size, new_last_loaded), view=new_view)
+        new_view = PokedexView(owner_id=self.owner_id, rows_data=new_rows, fetcher=self.fetch_rows, page_size=self.page_size, page_index=new_index, dupe_mode=self.dupe_mode, sort_key=self.sort_key, direction_key=self.direction_key, last_loaded=new_last_loaded, totals=new_totals)
+        await interaction.response.edit_message(content=render_page(new_rows, new_index, self.page_size, new_last_loaded, new_totals), view=new_view)
 
       class PageSelect(discord.ui.Select):
         def __init__(self, parent_view: 'PokedexView'):
@@ -419,14 +427,15 @@ async def pokedex(
             return
           mode = self.values[0]
           try:
-            new_rows = await self.parent_view.fetch_rows(mode)
+            new_rows, new_totals = await self.parent_view.fetch_rows(mode, self.parent_view.sort_key, self.parent_view.direction_key == "asc")
           except Exception:
-            new_rows = self.parent_view.rows
+            new_rows, new_totals = self.parent_view.rows, self.parent_view.totals_line
           self.parent_view.dupe_mode = mode
           self.parent_view.rows = new_rows
           self.parent_view.page_index = 0
           self.parent_view.total_pages = max(1, (len(new_rows) + self.parent_view.page_size - 1) // self.parent_view.page_size)
           self.parent_view.last_loaded = now_eastern_str()
+          self.parent_view.totals_line = new_totals
           # Rebuild page selector if present and update selection defaults
           for child in self.parent_view.children:
             if isinstance(child, discord.ui.Select) and child is not self:
@@ -456,14 +465,15 @@ async def pokedex(
             return
           key = self.values[0]
           try:
-            new_rows = await self.parent_view.fetch_rows(self.parent_view.dupe_mode, key, self.parent_view.direction_key == "asc")
+            new_rows, new_totals = await self.parent_view.fetch_rows(self.parent_view.dupe_mode, key, self.parent_view.direction_key == "asc")
           except Exception:
-            new_rows = self.parent_view.rows
+            new_rows, new_totals = self.parent_view.rows, self.parent_view.totals_line
           self.parent_view.sort_key = key
           self.parent_view.rows = new_rows
           self.parent_view.page_index = 0
           self.parent_view.total_pages = max(1, (len(new_rows) + self.parent_view.page_size - 1) // self.parent_view.page_size)
           self.parent_view.last_loaded = now_eastern_str()
+          self.parent_view.totals_line = new_totals
           # Update defaults
           for opt in self.options:
             opt.default = (opt.value == key)
@@ -491,14 +501,15 @@ async def pokedex(
           dirv = self.values[0]
           asc_flag = (dirv == "asc")
           try:
-            new_rows = await self.parent_view.fetch_rows(self.parent_view.dupe_mode, self.parent_view.sort_key, asc_flag)
+            new_rows, new_totals = await self.parent_view.fetch_rows(self.parent_view.dupe_mode, self.parent_view.sort_key, asc_flag)
           except Exception:
-            new_rows = self.parent_view.rows
+            new_rows, new_totals = self.parent_view.rows, self.parent_view.totals_line
           self.parent_view.direction_key = dirv
           self.parent_view.rows = new_rows
           self.parent_view.page_index = 0
           self.parent_view.total_pages = max(1, (len(new_rows) + self.parent_view.page_size - 1) // self.parent_view.page_size)
           self.parent_view.last_loaded = now_eastern_str()
+          self.parent_view.totals_line = new_totals
           for opt in self.options:
             opt.default = (opt.value == dirv)
           # Update page select options
@@ -518,8 +529,8 @@ async def pokedex(
           except Exception:
             pass
 
-    view = PokedexView(owner_id=interaction.user.id, rows_data=rows, fetcher=fetch_rows, page_size=15, dupe_mode=duplicates, sort_key=sort_by, direction_key=direction, last_loaded=initial_last_loaded)
-    await interaction.response.send_message(render_page(rows, view.page_index, view.page_size, initial_last_loaded), view=view, ephemeral=True)
+    view = PokedexView(owner_id=interaction.user.id, rows_data=rows, fetcher=fetch_rows, page_size=15, dupe_mode=duplicates, sort_key=sort_by, direction_key=direction, last_loaded=initial_last_loaded, totals=totals_line)
+    await interaction.response.send_message(render_page(rows, view.page_index, view.page_size, initial_last_loaded, totals_line), view=view, ephemeral=True)
     try:
       sent = await interaction.original_response()
       view.message = sent
