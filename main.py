@@ -298,10 +298,10 @@ async def pokedex(
       for p in fresh:
         dt = datetime.fromisoformat(p["caught_at"]) if "caught_at" in p and p["caught_at"] else datetime.now()
         dt_local = dt.astimezone(local_tz)
-        formatted_date = dt_local.strftime("%m/%d/%Y %I:%M %p")
+        formatted_date = dt_local.strftime("%m/%d/%y %I:%M %p")
         # rows_local.append(f"◓  {p['number']:<5} {p['name'].capitalize():<15} {formatted_date} EST\n")
         # Shrink the table width for mobile users
-        rows_local.append(f"{p['number']:<3} {p['name'].capitalize():<11} {formatted_date} EST\n")
+        rows_local.append(f"{p['number']:<3} {p['name'].capitalize():<11} {formatted_date} ET\n")
       return rows_local, totals_line
 
     # Initial rows
@@ -309,7 +309,7 @@ async def pokedex(
     # Initial last-loaded timestamp (Eastern)
     def now_eastern_str() -> str:
       now_local = datetime.now(local_tz)
-      return now_local.strftime("%m/%d/%Y %I:%M %p") + " EST"
+      return now_local.strftime("%m/%d/%y %I:%M %p") + " ET"
     initial_last_loaded = now_eastern_str()
 
     # Helper to render a single page into a code block
