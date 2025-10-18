@@ -6,7 +6,6 @@ import random
 from discord import app_commands 
 from discord import Interaction
 from discord.ext import commands
-import pytz
 from tnngbot.db.manager import MongoDBManager
 import requests
 import json
@@ -81,99 +80,101 @@ class Pokemon(commands.Cog):
             await message.edit(content=f"[TRADE FAILED] Something went wrong with the trade between {user1.mention} and {user2.mention}.", embeds=[])
   
   ### Pokemon Commands    
-  @app_commands.command(name="pokedex", description="List the Pokemon you've caught!")  
-  @app_commands.describe(
-      sort_by="Choose how to sort your Pokémon",
-      direction="Choose ascending or descending order"
-  )
-  @app_commands.choices(
-      sort_by=[
-          app_commands.Choice(name="Number", value="number"),
-          app_commands.Choice(name="Name", value="name"),
-          app_commands.Choice(name="Caught Date", value="caught_at"),
-      ],
-      direction=[
-          app_commands.Choice(name="Ascending", value="asc"),
-          app_commands.Choice(name="Descending", value="desc"),
-      ],
-      duplicates=[
-          app_commands.Choice(name="Show", value="show"),
-          app_commands.Choice(name="Hide", value="hide"),
-          app_commands.Choice(name="Only", value="only"),
-      ]
-  )
-  async def pokedex(
-    self,
-    interaction: Interaction,
-    sort_by: str = "number",
-    direction: str = "asc",
-    duplicates: str = "show"
-  ):
-    caught_pokemon = db.pokemon.get_my_caught_pokemon(
-      interaction.user, sort_by=sort_by, ascending=(direction == "asc")
-    )
+  # @app_commands.command(name="pokedex", description="List the Pokemon you've caught!")  
+  # @app_commands.describe(
+  #     sort_by="Choose how to sort your Pokémon",
+  #     direction="Choose ascending or descending order"
+  # )
+  # @app_commands.choices(
+  #     sort_by=[
+  #         app_commands.Choice(name="Number", value="number"),
+  #         app_commands.Choice(name="Name", value="name"),
+  #         app_commands.Choice(name="Caught Date", value="caught_at"),
+  #     ],
+  #     direction=[
+  #         app_commands.Choice(name="Ascending", value="asc"),
+  #         app_commands.Choice(name="Descending", value="desc"),
+  #     ],
+  #     duplicates=[
+  #         app_commands.Choice(name="Show", value="show"),
+  #         app_commands.Choice(name="Hide", value="hide"),
+  #         app_commands.Choice(name="Only", value="only"),
+  #     ]
+  # )
+  # async def pokedex(
+  #   self,
+  #   interaction: Interaction,
+  #   sort_by: str = "number",
+  #   direction: str = "asc",
+  #   duplicates: str = "show"
+  # ):
+  #   caught_pokemon = db.pokemon.get_my_caught_pokemon(
+  #     interaction.user, sort_by=sort_by, ascending=(direction == "asc")
+  #   )
 
-    if caught_pokemon:
-      if duplicates == "hide":
-        seen = set()
-        filtered = []
-        for p in caught_pokemon:
-          if p["number"] not in seen:
-            seen.add(p["number"])
-            filtered.append(p)
-        caught_pokemon = filtered
+  #   if caught_pokemon:
+  #     if duplicates == "hide":
+  #       seen = set()
+  #       filtered = []
+  #       for p in caught_pokemon:
+  #         if p["number"] not in seen:
+  #           seen.add(p["number"])
+  #           filtered.append(p)
+  #       caught_pokemon = filtered
 
-      elif duplicates == "only":
-        # Count occurrences by number
-        counts = Counter(p["number"] for p in caught_pokemon)
-        caught_pokemon = [p for p in caught_pokemon if counts[p["number"]] > 1]
-      # Build a table header
-      table = "```"
-      table += f"   {'No.':<5} {'Name':<15} {'Caught On'}\n"
-      table += "-" * 49 + "\n"
-      local_tz = pytz.timezone("US/Eastern")
+  #     elif duplicates == "only":
+  #       # Count occurrences by number
+  #       counts = Counter(p["number"] for p in caught_pokemon)
+  #       caught_pokemon = [p for p in caught_pokemon if counts[p["number"]] > 1]
+  #     # Build a table header
+  #     table = "```"
+  #     table += f"   {'No.':<5} {'Name':<15} {'Caught On'}\n"
+  #     table += "-" * 49 + "\n"
+  #     local_tz = pytz.timezone("US/Eastern")
 
-      # Fill rows
-      for p in caught_pokemon:
-        if p["caught_at"] is None:
-          continue
-        dt = datetime.fromisoformat(p["caught_at"])
-        dt_local = dt.astimezone(local_tz)
-        formatted_date = dt_local.strftime("%m/%d/%Y %I:%M %p")
+  #     # Fill rows
+  #     for p in caught_pokemon:
+  #       if p["caught_at"] is None:
+  #         continue
+  #       dt = datetime.fromisoformat(p["caught_at"])
+  #       dt_local = dt.astimezone(local_tz)
+  #       formatted_date = dt_local.strftime("%m/%d/%Y %I:%M %p")
 
-        table += f"◓  {p['number']:<5} {p['name'].capitalize():<15} {formatted_date} EST\n"        
+  #       table += f"◓  {p['number']:<5} {p['name'].capitalize():<15} {formatted_date} EST\n"        
 
-      table += "```"
+  #     table += "```"
 
-      await interaction.response.send_message(
-        f"**{interaction.user.display_name}'s Pokedex**\n{table}",
-        ephemeral=True
-      )
-    else:
-      await interaction.response.send_message(
-        "You haven't caught any Pokemon yet! React to a Pokemon with a <:pokeball:1419845300742520964> to catch it!",
-        ephemeral=True
-      )
+  #     await interaction.response.send_message(
+  #       f"**{interaction.user.display_name}'s Pokedex**\n{table}",
+  #       ephemeral=True
+  #     )
+  #   else:
+  #     await interaction.response.send_message(
+  #       "You haven't caught any Pokemon yet! React to a Pokemon with a <:pokeball:1419845300742520964> to catch it!",
+  #       ephemeral=True
+  #     )
         
   @app_commands.command(name="pokemon", description="Summon a Pokemon you've caught!")
   @app_commands.describe(pokemon_number="The number of the Pokemon you want to summon (1-151)")
   async def pokemon(self, interaction: discord.Interaction, pokemon_number: str):  
     caught_pokemon = db.pokemon.get_pokemon( interaction.user, int(pokemon_number))
+    level = 1 if caught_pokemon is None or 'level' not in caught_pokemon else caught_pokemon['level']
     if caught_pokemon:
       embed = discord.Embed(title=f"I choose you... <:pokeball:1419845300742520964> {caught_pokemon['name'].capitalize()}!")  
-      embed.set_thumbnail(url=caught_pokemon['image_url'])    
+      embed.set_thumbnail(url=caught_pokemon['image_url'])  
+      embed.set_footer(text=f"Lvl: {level}")  
       await interaction.response.send_message(embed=embed)
     else:
       await interaction.response.send_message("You haven't caught that pokemon.", ephemeral=True) 
 
   @app_commands.command(name="spawn_pokemon", description="[Admin Only] Spawn a pokemon by number")
-  @app_commands.describe(pokemon_number="The number of the Pokemon you want to spawn (1-151)", catch_count="How many attempts before catching")
-  async def spawn_pokemon(self, interaction: discord.Interaction, pokemon_number: str, catch_count: str):  
+  @app_commands.describe(pokemon_number="The number of the Pokemon you want to spawn (1-151)", catch_count="How many attempts before catching", level="Pokemon level")
+  async def spawn_pokemon(self, interaction: discord.Interaction, pokemon_number: str, catch_count:int = 0, level:int = 1):  
     if not isinstance(interaction.user, discord.Member):
       await interaction.response.send_message("This command can only be used in a server.", ephemeral=True)
       return
     if interaction.user is not None and interaction.user.guild_permissions.administrator:
-      await self.spawnPokemon(interaction, int(pokemon_number), catch_count=int(catch_count))
+      await self.spawnPokemon(interaction, int(pokemon_number), catch_count=int(catch_count), level=level)
       await interaction.response.send_message(f"Spawned pokemon number {pokemon_number}!", ephemeral=True) 
     else:
       await interaction.response.send_message("You do not have permission to use this command.", ephemeral=True)
@@ -197,6 +198,46 @@ class Pokemon(commands.Cog):
     await interaction.response.send_message(f"[TRADE] {user.mention}, {i_user.mention} wants to trade Pokemon! :thumbsup: to accept the trade.", 
                       embeds=[my_pokemon_embed,for_pokemon_embed], 
                       ephemeral=False)
+  
+  # @app_commands.command(name="fuse", description="Fuse two of the same Pokemon to create a stronger version! (The fused Pokemon will be lost)")
+  # @app_commands.describe(base_pokemon_number="Base pokemon number (1-151)", 
+  #                        base_pokemon_level="Base pokemon level", 
+  #                        fused_pokemon_number="Fused pokemon number (1-151)", 
+  #                        fused_pokemon_level="Fused pokemon level")
+  # async def fuse_pokemon(self, interaction: discord.Interaction, base_pokemon_number: int, base_pokemon_level: int, fused_pokemon_number: int, fused_pokemon_level: int):
+  #   base_pokemon = db.pokemon.get_pokemon_lvl(interaction.user, base_pokemon_number, base_pokemon_level)
+  #   fused_pokemon = db.pokemon.get_pokemon_lvl(interaction.user, fused_pokemon_number, fused_pokemon_level)
+  #   if base_pokemon is False or base_pokemon is None:
+  #     await interaction.response.send_message(f"❗ You do not own a pokemon with number {base_pokemon_number} at level {base_pokemon_level}.", ephemeral=True) 
+  #     return
+  #   if fused_pokemon is False or fused_pokemon is None:
+  #     await interaction.response.send_message(f"❗ You do not own a pokemon with number {fused_pokemon_number} at level {fused_pokemon_level}.", ephemeral=True) 
+  #     return 
+  #   if base_pokemon["number"] != fused_pokemon["number"]:
+  #     await interaction.response.send_message(f"❗ You can only fuse two of the same Pokemon.", ephemeral=True) 
+  #     return
+  #   if "level" not in base_pokemon:
+  #     base_pokemon["level"] = 1          
+  #   if "level" not in fused_pokemon:
+  #     fused_pokemon["level"] = 1
+        
+  #   base_pokemon["level"] += fused_pokemon["level"]
+  #   db.pokemon.update_pokemon(base_pokemon)
+  #   db.pokemon.delete_pokemon(fused_pokemon)
+    
+  #   embed = discord.Embed(title=f"{interaction.user.display_name} fused {base_pokemon['name'].capitalize()}!")  
+  #   embed.set_thumbnail(url=base_pokemon['image_url'])  
+  #   embed.add_field(name=f"{base_pokemon['name'].capitalize()} grew to level {base_pokemon['level']}", value="", inline=False) 
+  #   await interaction.response.send_message(embed=embed, ephemeral=True)  
+    
+  #   if can_pokemon_evolve(base_pokemon["level"]):
+  #     evolve_no = get_next_evolution_number(pokemon_name=base_pokemon["name"], allow_trade=False)
+  #     if (evolve_no > 0):        
+  #       #Add code to add UI button to confirm/cancel evolution then call pokemon api based on evolve_no and update the base_pokemon with the new name, number and image_url
+  #       return
+      
+      
+    
   
   async def throw_pokeball(self, payload, user):
     client = self.bot
@@ -246,7 +287,7 @@ class Pokemon(commands.Cog):
       except Exception as e:
         print(f"Error processing pokeball throw: {e}")  
 
-  async def spawnPokemon(self, message, pokemon_number=None, catch_count=None):
+  async def spawnPokemon(self, message, pokemon_number=None, catch_count=None, level=None):
     if pokemon_number is None:
       pokePool: list[int] = []
       with open('tnngbot/static/pokemonPool.json', 'r') as pokePoolJson:
@@ -255,17 +296,19 @@ class Pokemon(commands.Cog):
       pokeNo = pokePool[poolNo]
     else:
       pokeNo = pokemon_number
+    if level is None:
+      level = random.choices([1, 2, 3], weights=[6, 3, 1])[0]
     r = requests.get("https://pokeapi.co/api/v2/pokemon/" + str(pokeNo)) 
     pokemon = r.json()
     embed = discord.Embed(title=f"A wild {pokemon['name']} appears! [{pokeNo}]")
     embed.set_thumbnail(url=pokemon['sprites']['front_default'])  
-    embed.set_footer(text=f"{pokeNo}")
+    embed.set_footer(text=f"Lvl: {level}")
     channel = discord.utils.get(message.guild.channels, name="tall-grass")
     new_message = await channel.send(embed=embed)
     catch_count = catch_count if catch_count is not None else random.randint(0, int(os.environ['pokemonMaxAttempts']))
     name = pokemon["name"]
     image_url = pokemon["sprites"]["front_default"]
-    db.pokemon.create_pokemon(pokeNo, name, image_url, str(new_message.id), catch_count)
+    db.pokemon.create_pokemon(pokeNo, name, image_url, str(new_message.id), catch_count, level)
   
 async def setup(bot: commands.Bot):
   await bot.add_cog(Pokemon(bot))

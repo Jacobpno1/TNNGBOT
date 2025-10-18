@@ -1,14 +1,16 @@
+from bson import ObjectId
 from discord import User, Member
 from datetime import datetime
 from tnngbot.db.base import BaseService
 from tnngbot.schemas.pokemon import PokemonDoc
-from typing import Optional, List
+from typing import NotRequired, Optional, List, Union
 
 class PokemonService(BaseService):
-    def create_pokemon(self, number: int, name: str, image_url: str, message_id: str, catch_count: int) -> None:
+    def create_pokemon(self, number: int, name: str, image_url: str, message_id: str, catch_count: int, level: int) -> None:
         document: PokemonDoc = {
             "number": number,
             "name": name,
+            "level": level,
             "image_url": image_url,
             "message_id": message_id,
             "catch_count": catch_count,
@@ -21,6 +23,23 @@ class PokemonService(BaseService):
         }
         result = self.col.insert_one(document)
         print("Inserted Pokemon:", result.inserted_id)
+    
+    def update_pokemon(self, pokemon: PokemonDoc):
+        _v = pokemon["_v"]
+        pokemon["_v"] += 1
+        result = self.col.update_one(
+            {"message_id": pokemon["message_id"], "_v": _v},
+            {"$set": pokemon}
+        )
+        print("Matched:", result.matched_count, "Modified:", result.modified_count)
+        return result.matched_count == 1
+    
+    def delete_pokemon(self, pokemon: PokemonDoc):
+        if "_id" in pokemon:
+            result = self.col.delete_one({"_id": ObjectId(pokemon["_id"])})
+            return result.deleted_count == 1
+        else:
+            return False
 
     def user_has_pokemon(self, user_id: int, number: int):
         pokemon: PokemonDoc | None = self.col.find_one({"caught_by": user_id, "number": number})
@@ -65,6 +84,31 @@ class PokemonService(BaseService):
     def get_pokemon(self, user: User | Member, number: int) -> PokemonDoc | None:
         pokemon: PokemonDoc | None = self.col.find_one({"number": number, "caught_by": user.id})
         return pokemon if pokemon and pokemon["caught"] else None
+    
+    def get_pokemon_lvl(self, user: Union[User, Member], number: int, level: int, exclude_id=None) -> Optional[PokemonDoc]:
+        # If level == 1, allow matches where level == 1 or level doesn't exist
+        if level == 1:
+            level_query = {
+                "$or": [
+                    {"level": 1},
+                    {"level": {"$exists": False}}
+                ]
+            }
+        else:
+            level_query = {"level": level}
+
+        query = {
+            "number": number,
+            "caught_by": user.id,
+            **level_query
+        }
+
+        if exclude_id is not None:
+            query["_id"] = {"$ne": ObjectId(exclude_id)}
+
+        pokemon: Optional[PokemonDoc] = self.col.find_one(query)
+
+        return pokemon if pokemon and pokemon.get("caught", False) else None
 
     def trade_pokemon(self, user1: User | Member, user2: User | Member, pokemon1: PokemonDoc, pokemon2: PokemonDoc) -> bool:
         if "_id" not in pokemon1 or "_id" not in pokemon2:
