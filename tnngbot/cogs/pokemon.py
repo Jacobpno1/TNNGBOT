@@ -79,81 +79,7 @@ class Pokemon(commands.Cog):
           else:
             await message.edit(content=f"[TRADE FAILED] Something went wrong with the trade between {user1.mention} and {user2.mention}.", embeds=[])
   
-  ### Pokemon Commands    
-  # @app_commands.command(name="pokedex", description="List the Pokemon you've caught!")  
-  # @app_commands.describe(
-  #     sort_by="Choose how to sort your Pokémon",
-  #     direction="Choose ascending or descending order"
-  # )
-  # @app_commands.choices(
-  #     sort_by=[
-  #         app_commands.Choice(name="Number", value="number"),
-  #         app_commands.Choice(name="Name", value="name"),
-  #         app_commands.Choice(name="Caught Date", value="caught_at"),
-  #     ],
-  #     direction=[
-  #         app_commands.Choice(name="Ascending", value="asc"),
-  #         app_commands.Choice(name="Descending", value="desc"),
-  #     ],
-  #     duplicates=[
-  #         app_commands.Choice(name="Show", value="show"),
-  #         app_commands.Choice(name="Hide", value="hide"),
-  #         app_commands.Choice(name="Only", value="only"),
-  #     ]
-  # )
-  # async def pokedex(
-  #   self,
-  #   interaction: Interaction,
-  #   sort_by: str = "number",
-  #   direction: str = "asc",
-  #   duplicates: str = "show"
-  # ):
-  #   caught_pokemon = db.pokemon.get_my_caught_pokemon(
-  #     interaction.user, sort_by=sort_by, ascending=(direction == "asc")
-  #   )
-
-  #   if caught_pokemon:
-  #     if duplicates == "hide":
-  #       seen = set()
-  #       filtered = []
-  #       for p in caught_pokemon:
-  #         if p["number"] not in seen:
-  #           seen.add(p["number"])
-  #           filtered.append(p)
-  #       caught_pokemon = filtered
-
-  #     elif duplicates == "only":
-  #       # Count occurrences by number
-  #       counts = Counter(p["number"] for p in caught_pokemon)
-  #       caught_pokemon = [p for p in caught_pokemon if counts[p["number"]] > 1]
-  #     # Build a table header
-  #     table = "```"
-  #     table += f"   {'No.':<5} {'Name':<15} {'Caught On'}\n"
-  #     table += "-" * 49 + "\n"
-  #     local_tz = pytz.timezone("US/Eastern")
-
-  #     # Fill rows
-  #     for p in caught_pokemon:
-  #       if p["caught_at"] is None:
-  #         continue
-  #       dt = datetime.fromisoformat(p["caught_at"])
-  #       dt_local = dt.astimezone(local_tz)
-  #       formatted_date = dt_local.strftime("%m/%d/%Y %I:%M %p")
-
-  #       table += f"◓  {p['number']:<5} {p['name'].capitalize():<15} {formatted_date} EST\n"        
-
-  #     table += "```"
-
-  #     await interaction.response.send_message(
-  #       f"**{interaction.user.display_name}'s Pokedex**\n{table}",
-  #       ephemeral=True
-  #     )
-  #   else:
-  #     await interaction.response.send_message(
-  #       "You haven't caught any Pokemon yet! React to a Pokemon with a <:pokeball:1419845300742520964> to catch it!",
-  #       ephemeral=True
-  #     )
-        
+  ### Pokemon Commands          
   @app_commands.command(name="pokemon", description="Summon a Pokemon you've caught!")
   @app_commands.describe(pokemon_number="The number of the Pokemon you want to summon (1-151)")
   async def pokemon(self, interaction: discord.Interaction, pokemon_number: str):  
@@ -177,67 +103,7 @@ class Pokemon(commands.Cog):
       await self.spawnPokemon(interaction, int(pokemon_number), catch_count=int(catch_count), level=level)
       await interaction.response.send_message(f"Spawned pokemon number {pokemon_number}!", ephemeral=True) 
     else:
-      await interaction.response.send_message("You do not have permission to use this command.", ephemeral=True)
-
-  @app_commands.command(name="trade", description="Trade a Pokemon with another user")
-  @app_commands.describe(user="User to trade with.", my_pokemon_number="My PokeNumber (1-151)", for_pokemon_number="Their PokeNumber (1-151)")
-  async def trade_pokemon(self, interaction: discord.Interaction, user: discord.Member, my_pokemon_number: int, for_pokemon_number: int):  
-    i_user = interaction.user
-    my_pokemon = db.pokemon.get_pokemon( i_user, int(my_pokemon_number))
-    for_pokemon =  db.pokemon.get_pokemon( user, int(for_pokemon_number))
-    if my_pokemon is False or my_pokemon is None:
-      await interaction.response.send_message(f"❗ You do not own a pokemon with number {my_pokemon_number}.", ephemeral=True) 
-      return
-    if for_pokemon is False or for_pokemon is None:
-      await interaction.response.send_message(f"❗ {user.display_name} does not own a pokemon with number {for_pokemon_number}.", ephemeral=True) 
-      return
-    for_pokemon_embed = discord.Embed(title=f"{user.display_name} trades: <:pokeball:1419845300742520964> {for_pokemon['name']} [{for_pokemon['number']}]")
-    for_pokemon_embed.set_thumbnail(url=for_pokemon['image_url'])  
-    my_pokemon_embed = discord.Embed(title=f"{i_user.display_name} trades: <:pokeball:1419845300742520964> {my_pokemon['name']} [{my_pokemon['number']}]")
-    my_pokemon_embed.set_thumbnail(url=my_pokemon['image_url'])  
-    await interaction.response.send_message(f"[TRADE] {user.mention}, {i_user.mention} wants to trade Pokemon! :thumbsup: to accept the trade.", 
-                      embeds=[my_pokemon_embed,for_pokemon_embed], 
-                      ephemeral=False)
-  
-  # @app_commands.command(name="fuse", description="Fuse two of the same Pokemon to create a stronger version! (The fused Pokemon will be lost)")
-  # @app_commands.describe(base_pokemon_number="Base pokemon number (1-151)", 
-  #                        base_pokemon_level="Base pokemon level", 
-  #                        fused_pokemon_number="Fused pokemon number (1-151)", 
-  #                        fused_pokemon_level="Fused pokemon level")
-  # async def fuse_pokemon(self, interaction: discord.Interaction, base_pokemon_number: int, base_pokemon_level: int, fused_pokemon_number: int, fused_pokemon_level: int):
-  #   base_pokemon = db.pokemon.get_pokemon_lvl(interaction.user, base_pokemon_number, base_pokemon_level)
-  #   fused_pokemon = db.pokemon.get_pokemon_lvl(interaction.user, fused_pokemon_number, fused_pokemon_level)
-  #   if base_pokemon is False or base_pokemon is None:
-  #     await interaction.response.send_message(f"❗ You do not own a pokemon with number {base_pokemon_number} at level {base_pokemon_level}.", ephemeral=True) 
-  #     return
-  #   if fused_pokemon is False or fused_pokemon is None:
-  #     await interaction.response.send_message(f"❗ You do not own a pokemon with number {fused_pokemon_number} at level {fused_pokemon_level}.", ephemeral=True) 
-  #     return 
-  #   if base_pokemon["number"] != fused_pokemon["number"]:
-  #     await interaction.response.send_message(f"❗ You can only fuse two of the same Pokemon.", ephemeral=True) 
-  #     return
-  #   if "level" not in base_pokemon:
-  #     base_pokemon["level"] = 1          
-  #   if "level" not in fused_pokemon:
-  #     fused_pokemon["level"] = 1
-        
-  #   base_pokemon["level"] += fused_pokemon["level"]
-  #   db.pokemon.update_pokemon(base_pokemon)
-  #   db.pokemon.delete_pokemon(fused_pokemon)
-    
-  #   embed = discord.Embed(title=f"{interaction.user.display_name} fused {base_pokemon['name'].capitalize()}!")  
-  #   embed.set_thumbnail(url=base_pokemon['image_url'])  
-  #   embed.add_field(name=f"{base_pokemon['name'].capitalize()} grew to level {base_pokemon['level']}", value="", inline=False) 
-  #   await interaction.response.send_message(embed=embed, ephemeral=True)  
-    
-  #   if can_pokemon_evolve(base_pokemon["level"]):
-  #     evolve_no = get_next_evolution_number(pokemon_name=base_pokemon["name"], allow_trade=False)
-  #     if (evolve_no > 0):        
-  #       #Add code to add UI button to confirm/cancel evolution then call pokemon api based on evolve_no and update the base_pokemon with the new name, number and image_url
-  #       return
-      
-      
-    
+      await interaction.response.send_message("You do not have permission to use this command.", ephemeral=True)        
   
   async def throw_pokeball(self, payload, user):
     client = self.bot
