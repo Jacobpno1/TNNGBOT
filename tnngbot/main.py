@@ -21,9 +21,12 @@ async def on_ready():
 # Load all cogs
 async def load_cogs():  
   await client.load_extension("tnngbot.cogs.pokemon")
-  await client.load_extension("tnngbot.cogs.pokedex")
+  
+  await client.load_extension("tnngbot.cogs.commands.pokedex")
+  await client.load_extension("tnngbot.cogs.commands.fuse_pokemon")
+  await client.load_extension("tnngbot.cogs.commands.trade_pokemon")
+  
   await client.load_extension("tnngbot.cogs.quotes")
-  await client.load_extension("tnngbot.cogs.fuse_pokemon")
 
 async def _main():
   async with client:

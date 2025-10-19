@@ -3,8 +3,13 @@ import requests
 
 
 
-def can_pokemon_evolve(level: int) -> bool:
-  return 5 % level == 0
+def can_pokemon_evolve(old_level: int, new_level: int) -> bool:
+  """Return True if leveling up crosses or lands on a multiple of 5."""
+  if new_level < old_level:
+    return False  # No backward or invalid leveling
+
+  # Check if any multiple of 5 lies between old_level and new_level (inclusive)
+  return any(level % 5 == 0 for level in range(old_level + 1, new_level + 1))
 
 def get_next_evolution_number(pokemon_name: str, allow_trade: bool = False) -> int:
   """
