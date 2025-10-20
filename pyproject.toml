@@ -1,9 +1,9 @@
 [tool.poetry]
-name = "repl_python3_TNNGBOT"
+name = "tnngbot"
 version = "0.1.0"
 description = ""
-authors = ["Your Name <you@example.com>"]
-package-mode = false
+authors = ["Jacob Pettis <Jacobpno1@gmail.com>"]
+packages = [{ include = "tnngbot" }]
 
 [tool.poetry.dependencies]
 python = "^3.8"
@@ -12,10 +12,15 @@ Flask = "^2.0.2"
 discord-interactions = "^0.3.0"
 python-dotenv = "^0.20.0"
 pymongo = "^4.3.3"
+typing-extensions = "^4.5.0"
+requests = "^2.28.2"
 pytz = "^2024.1"
 
-[tool.poetry.dev-dependencies]
+[tool.poetry.group.dev.dependencies]
 debugpy = "^1.5.1"
+
+[tool.poetry.scripts]
+tnngbot = "tnngbot.main:main"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
