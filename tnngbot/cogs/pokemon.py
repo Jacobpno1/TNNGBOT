@@ -29,8 +29,8 @@ class Pokemon(commands.Cog):
     # Do not reply if the message is from the bot itself
     if message.author == self.bot.user:
       return 
-    # if random.randrange(1, int(os.environ['pokemonSpawnRate'])) == 1:
-    await self.spawnPokemon(message)   
+    if random.randrange(1, int(os.environ['pokemonSpawnRate'])) == 1:
+      await self.spawnPokemon(message)   
       
   @commands.Cog.listener()
   async def on_raw_reaction_add(self, payload):  
