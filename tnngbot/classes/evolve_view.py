@@ -3,18 +3,19 @@ import requests
 from discord.ui import View, Button
 
 class EvolveConfirmView(View):
-  def __init__(self, base_pokemon, evolve_no, db, interaction):
+  def __init__(self, base_pokemon, evolve_no, db, interaction, user: discord.User | discord.Member):
     super().__init__(timeout=30)
     self.base_pokemon = base_pokemon
     self.evolve_no = evolve_no
     self.db = db
     self.interaction = interaction
     self.confirmed = False
+    self.user = user
 
   @discord.ui.button(label="Confirm", style=discord.ButtonStyle.green)
   async def confirm(self, interaction: discord.Interaction, button: Button):
     # Prevent other users from clicking
-    if interaction.user.id != self.interaction.user.id:
+    if interaction.user.id != self.user.id:
       await interaction.response.send_message("This isn't your evolution!", ephemeral=True)
       return
 

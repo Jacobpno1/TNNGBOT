@@ -96,7 +96,7 @@ class PokemonFusion(commands.Cog):
         )
         evolve_embed.set_thumbnail(url=base_pokemon["image_url"])
 
-        view = EvolveConfirmView(base_pokemon, evolve_no, db, interaction)
+        view = EvolveConfirmView(base_pokemon, evolve_no, db, interaction, interaction.user)
         await interaction.followup.send(embed=evolve_embed, view=view, ephemeral=True)
 
 async def setup(bot: commands.Bot):

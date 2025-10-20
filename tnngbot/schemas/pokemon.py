@@ -16,5 +16,7 @@ class PokemonDoc(TypedDict):
     caught_by: Optional[int]
     caught_at: Optional[str]
     created_at: str    
+    traded_at: NotRequired[str]
+    previous_owners: NotRequired[List[str]]
     _v: int
     

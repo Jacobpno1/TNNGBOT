@@ -1,6 +1,7 @@
 from collections import Counter
 from datetime import datetime
 import os
+from typing import Union
 import discord
 import random
 from discord import app_commands 
@@ -53,37 +54,14 @@ class Pokemon(commands.Cog):
     if (payload.emoji.name == "pokeball"):  
       await self.throw_pokeball(payload, user) 
 
-    if (payload.emoji.name == "👍"):  
-      if (message.content is not None and message.content.startswith("[TRADE]")):    
-        if (str(user.id) == str(message.mentions[0].id)):
-          user1 = message.mentions[1]
-          user2 = message.mentions[0]
-          embed = message.embeds
-          if embed[0].title is None or embed[1].title is None:
-            await message.edit(content=f"[TRADE FAILED] {user.mention} something went wrong with the trade between {user1.mention} and {user2.mention}.", embeds=[])
-            return
-          user1_pokemon_number = embed[0].title.split('[')[-1].replace(']','')
-          user2_pokemon_number = embed[1].title.split('[')[-1].replace(']','')
-          user1_pokemon = db.pokemon.get_pokemon(user1, int(user1_pokemon_number))
-          if user1_pokemon is False or user1_pokemon is None:
-            await message.edit(content=f"[TRADE FAILED] {user1.mention} does not own a pokemon with number {user1_pokemon_number}.", embeds=[])
-            return
-          user2_pokemon = db.pokemon.get_pokemon( user2, int(user2_pokemon_number))
-          if user2_pokemon is False or user2_pokemon is None:
-            await message.edit(content=f"[TRADE FAILED] {user2.mention} does not own a pokemon with number {user2_pokemon_number}.", embeds=[])
-            return 
-          result = db.pokemon.trade_pokemon(user1, user2, user1_pokemon, user2_pokemon)    
-          if result == True:
-            await message.edit(content=f"[TRADE COMPLETED] {user.mention} traded <:pokeball:1419845300742520964> {user1_pokemon['name']} [{user1_pokemon['number']}] for {message.mentions[0].mention}'s <:pokeball:1419845300742520964> {user2_pokemon['name']} [{user2_pokemon['number']}]!",
-                      embeds=[],)           
-          else:
-            await message.edit(content=f"[TRADE FAILED] Something went wrong with the trade between {user1.mention} and {user2.mention}.", embeds=[])
-  
   ### Pokemon Commands          
   @app_commands.command(name="pokemon", description="Summon a Pokemon you've caught!")
-  @app_commands.describe(pokemon_number="The number of the Pokemon you want to summon (1-151)")
-  async def pokemon(self, interaction: discord.Interaction, pokemon_number: str):  
-    caught_pokemon = db.pokemon.get_pokemon( interaction.user, int(pokemon_number))
+  @app_commands.describe(pokemon_number="The number of the Pokemon you want to summon (1-151)", level="The level of the pokemon.")
+  async def pokemon(self, interaction: discord.Interaction, pokemon_number: str, level:int|None = None):
+    if level:
+      caught_pokemon = db.pokemon.get_pokemon_lvl( interaction.user, int(pokemon_number), level)
+    else:
+      caught_pokemon = db.pokemon.get_pokemon( interaction.user, int(pokemon_number))  
     level = 1 if caught_pokemon is None or 'level' not in caught_pokemon else caught_pokemon['level']
     if caught_pokemon:
       embed = discord.Embed(title=f"I choose you... <:pokeball:1419845300742520964> {caught_pokemon['name'].capitalize()}!")  
