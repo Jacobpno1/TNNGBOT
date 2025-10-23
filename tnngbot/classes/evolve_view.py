@@ -3,7 +3,7 @@ import requests
 from discord.ui import View, Button
 
 class EvolveConfirmView(View):
-  def __init__(self, base_pokemon, evolve_no, db, interaction, user: discord.User | discord.Member):
+  def __init__(self, base_pokemon, evolve_no, db, interaction: discord.Interaction, user: discord.User | discord.Member):
     super().__init__(timeout=30)
     self.base_pokemon = base_pokemon
     self.evolve_no = evolve_no
@@ -39,8 +39,15 @@ class EvolveConfirmView(View):
       color=discord.Color.gold()
     )
     embed.set_image(url=embed_image)
-
-    await interaction.response.edit_message(embed=embed, view=None)
+    
+    channel = None
+    if interaction.guild is not None:
+      channel = discord.utils.get(interaction.guild.channels, name="tall-grass")      
+    if channel is not None and isinstance(channel, discord.TextChannel) and interaction.channel is not None and channel.id == interaction.channel.id:
+      await interaction.response.edit_message(view=None)
+      await channel.send(embed=embed)        
+    else:
+      await interaction.response.edit_message(embed=embed, view=None)
     self.confirmed = True
     self.stop()
 
