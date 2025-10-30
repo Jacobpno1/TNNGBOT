@@ -1,5 +1,5 @@
 from collections import Counter
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 from typing import Union
 import discord
@@ -7,6 +7,7 @@ import random
 from discord import app_commands 
 from discord import Interaction
 from discord.ext import commands
+import pytz
 from tnngbot.db.manager import MongoDBManager
 import requests
 import json
@@ -53,6 +54,12 @@ class Pokemon(commands.Cog):
     
     if (payload.emoji.name == "pokeball"):  
       await self.throw_pokeball(payload, user) 
+    
+    if (payload.emoji.name == "greatball"):  
+      await self.throw_pokeball(payload, user, ball_type="greatball") 
+      
+    if (payload.emoji.name == "ultraball"):  
+      await self.throw_pokeball(payload, user, ball_type="ultraball") 
 
   ### Pokemon Commands          
   @app_commands.command(name="pokemon", description="Summon a Pokemon you've caught!")
@@ -83,7 +90,7 @@ class Pokemon(commands.Cog):
     else:
       await interaction.response.send_message("You do not have permission to use this command.", ephemeral=True)        
   
-  async def throw_pokeball(self, payload, user):
+  async def throw_pokeball(self, payload, user: discord.User, ball_type="pokeball"):
     client = self.bot
     if not client.user:  # make sure the bot user is ready
       return
@@ -97,6 +104,29 @@ class Pokemon(commands.Cog):
     channel = guild.get_channel(payload.channel_id)
     if not isinstance(channel, discord.TextChannel):
       return
+    emoji = discord.utils.get(guild.emojis, name=ball_type)
+    if emoji is None:
+      emoji = payload.emoji 
+    
+    user_doc = None
+    ball_cooldowns = None
+    now = datetime.now()
+    local_tz = pytz.timezone("US/Eastern")
+    now.astimezone(local_tz)
+    if ball_type != "pokeball":
+      user_doc = db.users.get_user(user.id)
+      ball_cooldowns = user_doc["ball_cooldowns"]      
+      cooldown_time:datetime|None = ball_cooldowns.get(ball_type, None)
+      if cooldown_time is not None and now < cooldown_time:
+        #private message user that they are still in cooldown
+        cooldown_time = cooldown_time + timedelta(seconds=int(os.environ[f'{ball_type}CooldownSeconds']))
+        await user.send(f"⏳ You have recently used a {str(emoji)}{ball_type}. You can use it again on {cooldown_time.strftime("%m/%d/%y %I:%M %p")} ET.")          
+        return  # Still in cooldown
+                
+    ball_bonus = 0
+    match ball_type:
+      case "greatball": ball_bonus = int(os.environ[f'{ball_type}Bonus'])
+      case "ultraball": ball_bonus = int(os.environ[f'{ball_type}Bonus'])
     
     message = await channel.fetch_message(payload.message_id)   
     if (len(message.embeds) != 0 and message.embeds[0] is not None and message.embeds[0].footer.text is not None):
@@ -107,14 +137,20 @@ class Pokemon(commands.Cog):
           print("No pokemon found for message ID " + str(message.id))
           return    
         hasUserAttempted = str(user.id) in pokemon["catch_attempts"]
-        catchable = len(pokemon["catch_attempts"]) >= pokemon["catch_count"]
+        catchable = len(pokemon["catch_attempts"]) + ball_bonus >= pokemon["catch_count"]
+        
         
         if hasUserAttempted is False and pokemon["caught"] is False:
           if catchable is True:
           # Catch the Pokemon      
             success = db.pokemon.catch_pokemon(str(message.id), pokemon, user)
             if success is True:
-              message.embeds[0].add_field(name=f"{str(payload.emoji)} Gotcha! {pokemon['name'].capitalize()} was caught by {user.display_name}!", 
+              # Update the cooldown
+              if ball_type != "pokeball" and user_doc is not None and ball_cooldowns is not None:                
+                ball_cooldowns[ball_type] = now + timedelta(seconds=int(os.environ[f'{ball_type}CooldownSeconds']))
+                user_doc["ball_cooldowns"] = ball_cooldowns
+                db.users.upsert_user(user_doc)              
+              message.embeds[0].add_field(name=f"{str(emoji)} Gotcha! {pokemon['name'].capitalize()} was caught by {user.display_name}!", 
               value="Use /pokedex to see all the Pokemon you've caught and /pokemon to summon them!", inline=False)  
               await message.edit(embed=message.embeds[0]) 
             else :
