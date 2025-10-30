@@ -1,8 +1,4 @@
-import os
 import discord
-from dotenv import load_dotenv
-from datetime import datetime
-from pymongo import MongoClient
 from tnngbot.db.base import BaseService
 
 class MessageService(BaseService):
