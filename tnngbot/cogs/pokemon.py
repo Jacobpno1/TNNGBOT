@@ -143,18 +143,18 @@ class Pokemon(commands.Cog):
         if hasUserAttempted is False and pokemon["caught"] is False:
           if catchable is True:
           # Catch the Pokemon      
-            success = db.pokemon.catch_pokemon(str(message.id), pokemon, user)
-            if success is True:
-              # Update the cooldown
-              if ball_type != "pokeball" and user_doc is not None and ball_cooldowns is not None:                
-                ball_cooldowns[ball_type] = now + timedelta(seconds=int(os.environ[f'{ball_type}CooldownSeconds']))
-                user_doc["ball_cooldowns"] = ball_cooldowns
-                db.users.upsert_user(user_doc)              
+            success = db.pokemon.catch_pokemon(str(message.id), pokemon, user)            
+            if success is True:                           
               message.embeds[0].add_field(name=f"{str(emoji)} Gotcha! {pokemon['name'].capitalize()} was caught by {user.display_name}!", 
               value="Use /pokedex to see all the Pokemon you've caught and /pokemon to summon them!", inline=False)  
               await message.edit(embed=message.embeds[0]) 
             else :
-              await self.throw_pokeball(payload, user);     
+              await self.throw_pokeball(payload, user); 
+            # Update the cooldown
+            if ball_type != "pokeball" and user_doc is not None and ball_cooldowns is not None:                
+              ball_cooldowns[ball_type] = now + timedelta(seconds=int(os.environ[f'{ball_type}CooldownSeconds']))
+              user_doc["ball_cooldowns"] = ball_cooldowns
+              db.users.upsert_user(user_doc)     
           else:
             # Track the failed attempt
             # success = await mongoDBAPI.addCatchAttempt("Pokemon", "TNNGBOT", "JacobTEST", str(message.id), user, pokemon)
