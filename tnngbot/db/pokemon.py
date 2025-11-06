@@ -49,9 +49,10 @@ class PokemonService(BaseService):
         pokemon: PokemonDoc | None = self.col.find_one({"message_id": message_id})
         return pokemon
 
-    def add_catch_attempt(self, message_id: str, user: User | Member, pokemon: PokemonDoc) -> bool:
+    def add_catch_attempt(self, message_id: str, user: User | Member, pokemon: PokemonDoc, attempt_count:int) -> bool:
         catch_attempts = pokemon["catch_attempts"]
-        catch_attempts.append(str(user.id))
+        if attempt_count > 0:
+            catch_attempts.extend([str(user.id)] * attempt_count)
         result = self.col.update_one(
             {"message_id": message_id, "_v": pokemon["_v"]},
             {"$set": {"catch_attempts": catch_attempts, "_v": pokemon["_v"] + 1}},

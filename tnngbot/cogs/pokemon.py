@@ -158,7 +158,7 @@ class Pokemon(commands.Cog):
           else:
             # Track the failed attempt
             # success = await mongoDBAPI.addCatchAttempt("Pokemon", "TNNGBOT", "JacobTEST", str(message.id), user, pokemon)
-            success = db.pokemon.add_catch_attempt(str(message.id), user, pokemon)
+            success = db.pokemon.add_catch_attempt(str(message.id), user, pokemon, ball_bonus+1)
             if success is True:
               message.embeds[0].add_field(name=f"Oh no {user.display_name}! {pokemon['name'].capitalize()} broke free!", value="", inline=False)
               await message.edit(embed=message.embeds[0])
