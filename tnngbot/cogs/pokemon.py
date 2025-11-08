@@ -149,19 +149,19 @@ class Pokemon(commands.Cog):
               value="Use /pokedex to see all the Pokemon you've caught and /pokemon to summon them!", inline=False)  
               await message.edit(embed=message.embeds[0]) 
             else :
-              await self.throw_pokeball(payload, user); 
-            # Update the cooldown
-            if ball_type != "pokeball" and user_doc is not None and ball_cooldowns is not None:                
-              ball_cooldowns[ball_type] = now + timedelta(seconds=int(os.environ[f'{ball_type}CooldownSeconds']))
-              user_doc["ball_cooldowns"] = ball_cooldowns
-              db.users.upsert_user(user_doc)     
+              await self.throw_pokeball(payload, user);                  
           else:
             # Track the failed attempt
             # success = await mongoDBAPI.addCatchAttempt("Pokemon", "TNNGBOT", "JacobTEST", str(message.id), user, pokemon)
-            success = db.pokemon.add_catch_attempt(str(message.id), user, pokemon, ball_bonus+1)
-            if success is True:
+            result = db.pokemon.add_catch_attempt(str(message.id), user, pokemon, ball_bonus+1)            
+            if result is True:
               message.embeds[0].add_field(name=f"Oh no {user.display_name}! {pokemon['name'].capitalize()} broke free!", value="", inline=False)
               await message.edit(embed=message.embeds[0])
+              # Update the cooldown
+              if ball_type != "pokeball" and user_doc is not None and ball_cooldowns is not None:                
+                ball_cooldowns[ball_type] = now + timedelta(seconds=int(os.environ[f'{ball_type}CooldownSeconds']))
+                user_doc["ball_cooldowns"] = ball_cooldowns
+                db.users.upsert_user(user_doc)
             else:
               await self.throw_pokeball(payload, user); 
       except Exception as e:
