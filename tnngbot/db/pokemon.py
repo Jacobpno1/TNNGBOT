@@ -6,7 +6,7 @@ from tnngbot.schemas.pokemon import PokemonDoc
 from typing import NotRequired, Optional, List, Union
 
 class PokemonService(BaseService):
-    def create_pokemon(self, number: int, name: str, image_url: str, message_id: str, catch_count: int, level: int) -> None:
+    def create_pokemon(self, number: int, name: str, image_url: str, message_id: str, catch_count: int, level: int, flee: bool) -> None:
         document: PokemonDoc = {
             "number": number,
             "name": name,
@@ -18,9 +18,11 @@ class PokemonService(BaseService):
             "caught": False,
             "caught_by": None,
             "caught_at": None,
-            "created_at": datetime.now().isoformat(),
+            "created_at": datetime.now().isoformat(),            
             "_v": 0,
         }
+        if (flee is True):
+            document["flees"] = True
         result = self.col.insert_one(document)
         print("Inserted Pokemon:", result.inserted_id)
     
@@ -65,7 +67,21 @@ class PokemonService(BaseService):
             {
                 "$set": {
                     "caught": True,
+                    "fled": False,
                     "caught_by": user.id,
+                    "caught_at": datetime.now().isoformat(),
+                    "_v": pokemon["_v"] + 1,
+                }
+            },
+        )
+        return result.matched_count == 1
+    
+    def pokemon_flees(self, message_id: str, pokemon: PokemonDoc) -> bool:
+        result = self.col.update_one(
+            {"message_id": message_id, "_v": pokemon["_v"]},
+            {
+                "$set": {
+                    "fled": True,                                        
                     "caught_at": datetime.now().isoformat(),
                     "_v": pokemon["_v"] + 1,
                 }
