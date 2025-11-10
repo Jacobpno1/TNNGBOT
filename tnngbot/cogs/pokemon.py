@@ -118,8 +118,7 @@ class Pokemon(commands.Cog):
       ball_cooldowns = user_doc["ball_cooldowns"]      
       cooldown_time:datetime|None = ball_cooldowns.get(ball_type, None)
       if cooldown_time is not None and now < cooldown_time:
-        #private message user that they are still in cooldown
-        cooldown_time = cooldown_time + timedelta(seconds=int(os.environ[f'{ball_type}CooldownSeconds']))
+        #private message user that they are still in cooldown        
         await user.send(f"You have recently used a {str(emoji)}{ball_type}. You can use it again on {cooldown_time.strftime('%m/%d/%y %I:%M %p')} ET.")          
         return  # Still in cooldown
                 
