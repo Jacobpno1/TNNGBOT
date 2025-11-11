@@ -20,6 +20,8 @@ class TradeConfirmView(View):
   def __init__(self, allowed_user: discord.Member, i_user: discord.User | discord.Member, my_pokemon: PokemonDoc, for_pokemon: PokemonDoc):
     # persistent view: set timeout to None so the view does not expire during the bot's runtime
     super().__init__(timeout=None)
+    # persistent view: set timeout to None so the view does not expire during the bot's runtime
+    super().__init__(timeout=None)
     self.allowed_user = allowed_user
     self.i_user = i_user
     self.my_pokemon = my_pokemon
@@ -41,6 +43,9 @@ class TradeConfirmView(View):
 
   @discord.ui.button(label="Accept", style=discord.ButtonStyle.green)
   async def accept(self, interaction: discord.Interaction, button: Button):
+    if not await self.interaction_check(interaction):
+      return
+    
     if not await self.interaction_check(interaction):
       return
     
@@ -89,21 +94,25 @@ class TradeConfirmView(View):
       confirmation_msg = f"[TRADE FAILED] Something went wrong with the trade between {user1.mention} and {user2.mention}."
       await self.disable_and_update(interaction, confirmation_msg, discord.Color.red()) 
     guild = discord.utils.get(interaction.client.guilds, name="Jacobpno1")
+    guild = discord.utils.get(interaction.client.guilds, name="Jacobpno1")
     # result = db.pokemon.trade_pokemon(user1, user2, user1_pokemon, user2_pokemon)  
+    pokeball_emoji = "<:pokeball:1419845300742520964>"
+    if guild is not None:
+      pokeball_emoji = str(discord.utils.get(guild.emojis, name="pokeball") or "<:pokeball:1419845300742520964>")
     pokeball_emoji = "<:pokeball:1419845300742520964>"
     if guild is not None:
       pokeball_emoji = str(discord.utils.get(guild.emojis, name="pokeball") or "<:pokeball:1419845300742520964>")
     confirmation_msg = (
     f"✅ **Trade completed!**\n"
-    f"{self.i_user.mention} traded {pokeball_emoji} **{self.my_pokemon['name'].capitalize()} (lvl: {self.my_pokemon.get('level', 1)})** "
-    f"for {self.allowed_user.mention}'s {pokeball_emoji} **{self.for_pokemon['name'].capitalize()} (lvl: {self.for_pokemon.get('level', 1)})**."
+    f"{self.i_user.mention} traded {pokeball_emoji} **{self.my_pokemon['name'].capitalize()} (Lvl: {self.my_pokemon.get('level', 1)})** "
+    f"for {self.allowed_user.mention}'s {pokeball_emoji} **{self.for_pokemon['name'].capitalize()} (Lvl: {self.for_pokemon.get('level', 1)})**."
     )
     # send confirmation to the "tall-grass" channel in the guild named "Jacobpno1"
-    
+    embed = discord.Embed(description=confirmation_msg, color=discord.Color.green())
     if guild is not None:
       channel = discord.utils.get(guild.channels, name="tall-grass")
       if channel is not None and isinstance(channel, discord.TextChannel):
-        await channel.send(confirmation_msg)
+        await channel.send(embed=embed)
     
     await self.disable_and_update(interaction, confirmation_msg, discord.Color.green())
     # --- Evolution Check ---
@@ -191,7 +200,10 @@ class TradePokemon(commands.Cog):
     # Build embeds showing both Pokémon
     # Resolve pokeball emoji by name (fallback to the original literal if not found)
     pokeball_emoji = str(discord.utils.get(self.bot.emojis, name="pokeball") or "<:pokeball:1419845300742520964>")
+    # Resolve pokeball emoji by name (fallback to the original literal if not found)
+    pokeball_emoji = str(discord.utils.get(self.bot.emojis, name="pokeball") or "<:pokeball:1419845300742520964>")
     my_pokemon_embed = discord.Embed(
+      title=f"{i_user.display_name} offers: {pokeball_emoji} "
       title=f"{i_user.display_name} offers: {pokeball_emoji} "
           f"{my_pokemon['name'].capitalize()} [#{my_pokemon['number']}]"
     )
@@ -200,6 +212,7 @@ class TradePokemon(commands.Cog):
     my_pokemon_embed.set_thumbnail(url=my_pokemon["image_url"])
 
     for_pokemon_embed = discord.Embed(
+      title=f"For {user.display_name}'s: {pokeball_emoji} "
       title=f"For {user.display_name}'s: {pokeball_emoji} "
           f"{for_pokemon['name'].capitalize()} [#{for_pokemon['number']}]"
     )
@@ -221,6 +234,12 @@ class TradePokemon(commands.Cog):
       embeds=[my_pokemon_embed, for_pokemon_embed],
       view=view
     )
+    interaction_msg = (
+      f"✅ Trade offer sent to {user.mention} to trade "
+      f"{pokeball_emoji} **{my_pokemon['name'].capitalize()} (lvl: {my_pokemon.get('level', 1)})** "
+      f"for their {pokeball_emoji} **{for_pokemon['name'].capitalize()} (lvl: {for_pokemon.get('level', 1)})**."
+    )
+    await interaction.response.send_message(interaction_msg, ephemeral=True)
     interaction_msg = (
       f"✅ Trade offer sent to {user.mention} to trade "
       f"{pokeball_emoji} **{my_pokemon['name'].capitalize()} (lvl: {my_pokemon.get('level', 1)})** "
