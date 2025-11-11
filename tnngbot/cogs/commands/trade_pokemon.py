@@ -200,21 +200,15 @@ class TradePokemon(commands.Cog):
     # Build embeds showing both Pokémon
     # Resolve pokeball emoji by name (fallback to the original literal if not found)
     pokeball_emoji = str(discord.utils.get(self.bot.emojis, name="pokeball") or "<:pokeball:1419845300742520964>")
-    # Resolve pokeball emoji by name (fallback to the original literal if not found)
-    pokeball_emoji = str(discord.utils.get(self.bot.emojis, name="pokeball") or "<:pokeball:1419845300742520964>")
-    my_pokemon_embed = discord.Embed(
-      title=f"{i_user.display_name} offers: {pokeball_emoji} "
-      title=f"{i_user.display_name} offers: {pokeball_emoji} "
-          f"{my_pokemon['name'].capitalize()} [#{my_pokemon['number']}]"
+    my_pokemon_embed = discord.Embed(      
+      title=f"{i_user.display_name} offers: {pokeball_emoji} {my_pokemon['name'].capitalize()} [#{my_pokemon['number']}]"
     )
     if 'level' in my_pokemon:
       my_pokemon_embed.set_footer(text=f"Lvl: {my_pokemon['level']}")  
     my_pokemon_embed.set_thumbnail(url=my_pokemon["image_url"])
 
-    for_pokemon_embed = discord.Embed(
-      title=f"For {user.display_name}'s: {pokeball_emoji} "
-      title=f"For {user.display_name}'s: {pokeball_emoji} "
-          f"{for_pokemon['name'].capitalize()} [#{for_pokemon['number']}]"
+    for_pokemon_embed = discord.Embed(      
+      title=f"For {user.display_name}'s: {pokeball_emoji} {for_pokemon['name'].capitalize()} [#{for_pokemon['number']}]"
     )
     if 'level' in for_pokemon:
       for_pokemon_embed.set_footer(text=f"Lvl: {for_pokemon['level']}")  
@@ -230,18 +224,12 @@ class TradePokemon(commands.Cog):
 
     # Send trade offer
     await user.send(
-      f"[TRADE] {user.mention}, {i_user.mention} wants to trade Pokémon!",
+      f"**{i_user.mention} wants to trade Pokémon!**",
       embeds=[my_pokemon_embed, for_pokemon_embed],
       view=view
     )
     interaction_msg = (
-      f"✅ Trade offer sent to {user.mention} to trade "
-      f"{pokeball_emoji} **{my_pokemon['name'].capitalize()} (lvl: {my_pokemon.get('level', 1)})** "
-      f"for their {pokeball_emoji} **{for_pokemon['name'].capitalize()} (lvl: {for_pokemon.get('level', 1)})**."
-    )
-    await interaction.response.send_message(interaction_msg, ephemeral=True)
-    interaction_msg = (
-      f"✅ Trade offer sent to {user.mention} to trade "
+      f"Trade offer sent to {user.mention} to trade "
       f"{pokeball_emoji} **{my_pokemon['name'].capitalize()} (lvl: {my_pokemon.get('level', 1)})** "
       f"for their {pokeball_emoji} **{for_pokemon['name'].capitalize()} (lvl: {for_pokemon.get('level', 1)})**."
     )
