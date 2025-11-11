@@ -13,6 +13,7 @@ from tnngbot.utils.evolve import can_pokemon_evolve, get_next_evolution_number
 MONGO_DBNAME = os.environ["MONGO_DBNAME"]
 MONGO_URI = os.environ["MONGO_URI"]
 db = MongoDBManager(MONGO_DBNAME, MONGO_URI)
+guild_name = os.environ["guildName"]
 
 
 # --- Trade confirmation view ---
@@ -93,12 +94,8 @@ class TradeConfirmView(View):
     if result is False:      
       confirmation_msg = f"[TRADE FAILED] Something went wrong with the trade between {user1.mention} and {user2.mention}."
       await self.disable_and_update(interaction, confirmation_msg, discord.Color.red()) 
-    guild = discord.utils.get(interaction.client.guilds, name="Jacobpno1")
-    guild = discord.utils.get(interaction.client.guilds, name="Jacobpno1")
-    # result = db.pokemon.trade_pokemon(user1, user2, user1_pokemon, user2_pokemon)  
-    pokeball_emoji = "<:pokeball:1419845300742520964>"
-    if guild is not None:
-      pokeball_emoji = str(discord.utils.get(guild.emojis, name="pokeball") or "<:pokeball:1419845300742520964>")
+    guild = discord.utils.get(interaction.client.guilds, name=guild_name)    
+    # result = db.pokemon.trade_pokemon(user1, user2, user1_pokemon, user2_pokemon)      
     pokeball_emoji = "<:pokeball:1419845300742520964>"
     if guild is not None:
       pokeball_emoji = str(discord.utils.get(guild.emojis, name="pokeball") or "<:pokeball:1419845300742520964>")
