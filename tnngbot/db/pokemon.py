@@ -73,7 +73,7 @@ class PokemonService(BaseService):
         )
         return result.matched_count == 1
 
-    def get_my_caught_pokemon(self, user: User | Member, sort_by: str = "number", ascending: bool = True) -> List[PokemonDoc]:
+    def get_caught_pokemon(self, user: User | Member, sort_by: str = "number", ascending: bool = True) -> List[PokemonDoc]:
         # Convert boolean into pymongo sort direction
         sort_direction = 1 if ascending else -1
         # Default to number if invalid sort_by passed
