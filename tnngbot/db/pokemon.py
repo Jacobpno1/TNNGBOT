@@ -73,6 +73,11 @@ class PokemonService(BaseService):
         )
         return result.matched_count == 1
 
+    def get_pokemon_by_id(self, pokemon_id) -> Optional[PokemonDoc]:
+        obj_id = ObjectId(pokemon_id) if not isinstance(pokemon_id, ObjectId) else pokemon_id
+        pokemon: Optional[PokemonDoc] = self.col.find_one({"_id": obj_id})
+        return pokemon
+
     def get_caught_pokemon(self, user: User | Member, sort_by: str = "number", ascending: bool = True) -> List[PokemonDoc]:
         # Convert boolean into pymongo sort direction
         sort_direction = 1 if ascending else -1
@@ -110,4 +115,3 @@ class PokemonService(BaseService):
         pokemon: Optional[PokemonDoc] = self.col.find_one(query)
 
         return pokemon if pokemon and pokemon.get("caught", False) else None
-
