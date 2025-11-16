@@ -51,11 +51,9 @@ class EvolveConfirmView(View):
       channel = discord.utils.get(interaction.guild.channels, name="tall-grass") 
     elif guild is not None:
       channel = discord.utils.get(guild.channels, name="tall-grass")    
-    if channel is not None and isinstance(channel, discord.TextChannel) and interaction.channel is not None and channel.id == interaction.channel.id:
-      await interaction.response.edit_message(view=None)
-      await channel.send(embed=embed)        
-    else:
-      await interaction.response.edit_message(embed=embed, view=None)
+    if channel is not None and isinstance(channel, discord.TextChannel):    
+      await channel.send(embed=embed)            
+    await interaction.response.edit_message(embed=embed, view=None)
     self.confirmed = True
     self.stop()
 
