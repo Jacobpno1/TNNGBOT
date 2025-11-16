@@ -4,6 +4,7 @@ from discord import app_commands
 from discord.ui import View, Button
 from discord.ext import commands
 import os
+from typing import Optional
 from tnngbot.classes.evolve_view import EvolveConfirmView
 from tnngbot.db.manager import MongoDBManager
 from tnngbot.schemas.pokemon import PokemonDoc
@@ -27,6 +28,15 @@ class TradeConfirmView(View):
     self.i_user = i_user
     self.my_pokemon = my_pokemon
     self.for_pokemon = for_pokemon
+
+  def _get_pokemon_for_trade(self, pokemon_doc: PokemonDoc, owner: discord.User | discord.Member) -> Optional[PokemonDoc]:
+    pokemon_id = pokemon_doc.get("_id") if pokemon_doc else None
+    if pokemon_id is None:
+      return None
+    latest = db.pokemon.get_pokemon_by_id(pokemon_id)
+    if latest is None or latest.get("caught_by") != owner.id or latest.get("caught") is False:
+      return None
+    return latest
 
   async def interaction_check(self, interaction: discord.Interaction) -> bool:
     """Ensure only the target user can interact."""
@@ -56,18 +66,21 @@ class TradeConfirmView(View):
     user1 = self.i_user
     user2 = self.allowed_user    
     
-    user1_pokemon_number = self.my_pokemon['number']
-    user2_pokemon_number = self.for_pokemon['number']
-    user1_pokemon = db.pokemon.get_pokemon(user1, int(user1_pokemon_number))
-    if user1_pokemon is False or user1_pokemon is None:
-      confirmation_msg = f"[TRADE FAILED] {user1.mention} does not own a pokemon with number {user1_pokemon_number}."
+    user1_pokemon = self._get_pokemon_for_trade(self.my_pokemon, user1)
+    if not user1_pokemon:
+      pokemon_name = self.my_pokemon.get('name', 'that Pokémon') if isinstance(self.my_pokemon, dict) else 'that Pokémon'
+      confirmation_msg = f"[TRADE FAILED] {user1.mention} does not own {pokemon_name} anymore."
       await self.disable_and_update(interaction, confirmation_msg, discord.Color.red())  
       return
-    user2_pokemon = db.pokemon.get_pokemon( user2, int(user2_pokemon_number))
-    if user2_pokemon is False or user2_pokemon is None:
-      confirmation_msg = f"[TRADE FAILED] {user2.mention} does not own a pokemon with number {user2_pokemon_number}."
+    user2_pokemon = self._get_pokemon_for_trade(self.for_pokemon, user2)
+    if not user2_pokemon:
+      pokemon_name = self.for_pokemon.get('name', 'that Pokémon') if isinstance(self.for_pokemon, dict) else 'that Pokémon'
+      confirmation_msg = f"[TRADE FAILED] {user2.mention} does not own {pokemon_name} anymore."
       await self.disable_and_update(interaction, confirmation_msg, discord.Color.red())   
       return 
+
+    self.my_pokemon = user1_pokemon
+    self.for_pokemon = user2_pokemon
     
     #Update Pokemon 1
     prev1 = user1_pokemon.get("previous_owners", [])
