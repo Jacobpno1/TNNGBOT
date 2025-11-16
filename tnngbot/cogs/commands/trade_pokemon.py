@@ -80,14 +80,14 @@ class TradeConfirmView(View):
     user1_pokemon = self._get_pokemon_for_trade(self.my_pokemon, user1)
     if not user1_pokemon:
       pokemon_name = self.my_pokemon.get('name', 'that Pokémon') if isinstance(self.my_pokemon, dict) else 'that Pokémon'
-      confirmation_msg = f"[TRADE FAILED] {user1.mention} does not own {pokemon_name} anymore."
-      await self.disable_and_update(interaction, confirmation_msg, discord.Color.red())  
+      confirmation_msg = f"[TRADE FAILED] **{user1.display_name}** does not own **{pokemon_name}** anymore."
+      await self.disable_and_update(interaction, confirmation_msg, discord.Color.red(), notify_user=user1)  
       return
     user2_pokemon = self._get_pokemon_for_trade(self.for_pokemon, user2)
     if not user2_pokemon:
       pokemon_name = self.for_pokemon.get('name', 'that Pokémon') if isinstance(self.for_pokemon, dict) else 'that Pokémon'
-      confirmation_msg = f"[TRADE FAILED] {user2.mention} does not own {pokemon_name} anymore."
-      await self.disable_and_update(interaction, confirmation_msg, discord.Color.red())   
+      confirmation_msg = f"[TRADE FAILED] **{user2.display_name}** does not own **{pokemon_name}** anymore."
+      await self.disable_and_update(interaction, confirmation_msg, discord.Color.red(), notify_user=user1)   
       return 
 
     self.my_pokemon = user1_pokemon
