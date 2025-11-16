@@ -45,11 +45,13 @@ class TradeConfirmView(View):
       return False
     return True
 
-  async def disable_and_update(self, interaction: discord.Interaction, message: str, color: discord.Color):
+  async def disable_and_update(self, interaction: discord.Interaction, message: str, color: discord.Color, notify_user: discord.User | discord.Member | None = None):
     """Helper to clear buttons and update the original message."""
     embed = discord.Embed(description=message, color=color)
     if interaction.message is not None:
       await interaction.message.edit(content=None, embeds=[embed], view=None)
+    if notify_user is not None:
+      await notify_user.send(embed=embed)
     self.stop()
 
   @discord.ui.button(label="Accept", style=discord.ButtonStyle.green)
@@ -69,14 +71,14 @@ class TradeConfirmView(View):
     user1_pokemon = self._get_pokemon_for_trade(self.my_pokemon, user1)
     if not user1_pokemon:
       pokemon_name = self.my_pokemon.get('name', 'that Pokémon') if isinstance(self.my_pokemon, dict) else 'that Pokémon'
-      confirmation_msg = f"[TRADE FAILED] {user1.mention} does not own {pokemon_name} anymore."
-      await self.disable_and_update(interaction, confirmation_msg, discord.Color.red())  
+      confirmation_msg = f"[TRADE FAILED] **{user1.display_name}** does not own **{pokemon_name}** anymore."
+      await self.disable_and_update(interaction, confirmation_msg, discord.Color.red(), notify_user=user1)  
       return
     user2_pokemon = self._get_pokemon_for_trade(self.for_pokemon, user2)
     if not user2_pokemon:
       pokemon_name = self.for_pokemon.get('name', 'that Pokémon') if isinstance(self.for_pokemon, dict) else 'that Pokémon'
-      confirmation_msg = f"[TRADE FAILED] {user2.mention} does not own {pokemon_name} anymore."
-      await self.disable_and_update(interaction, confirmation_msg, discord.Color.red())   
+      confirmation_msg = f"[TRADE FAILED] **{user2.display_name}** does not own **{pokemon_name}** anymore."
+      await self.disable_and_update(interaction, confirmation_msg, discord.Color.red(), notify_user=user1)   
       return 
 
     self.my_pokemon = user1_pokemon
@@ -92,8 +94,8 @@ class TradeConfirmView(View):
     result = db.pokemon.update_pokemon(user1_pokemon)
     
     if result is False:      
-      confirmation_msg = f"[TRADE FAILED] Something went wrong with the trade between {user1.mention} and {user2.mention}."
-      await self.disable_and_update(interaction, confirmation_msg, discord.Color.red())  
+      confirmation_msg = f"[TRADE FAILED] Something went wrong with the trade between **{user1.display_name}** and **{user2.display_name}**."
+      await self.disable_and_update(interaction, confirmation_msg, discord.Color.red(), notify_user=user1)  
     
     #Update Pokemon 2
     prev2 = user2_pokemon.get("previous_owners", [])
@@ -105,8 +107,8 @@ class TradeConfirmView(View):
     result = db.pokemon.update_pokemon(user2_pokemon)
     
     if result is False:      
-      confirmation_msg = f"[TRADE FAILED] Something went wrong with the trade between {user1.mention} and {user2.mention}."
-      await self.disable_and_update(interaction, confirmation_msg, discord.Color.red()) 
+      confirmation_msg = f"[TRADE FAILED] Something went wrong with the trade between **{user1.display_name}** and **{user2.display_name}**."
+      await self.disable_and_update(interaction, confirmation_msg, discord.Color.red(), notify_user=user1) 
     guild = discord.utils.get(interaction.client.guilds, name=guild_name)    
     # result = db.pokemon.trade_pokemon(user1, user2, user1_pokemon, user2_pokemon)      
     pokeball_emoji = "<:pokeball:1419845300742520964>"
@@ -114,8 +116,8 @@ class TradeConfirmView(View):
       pokeball_emoji = str(discord.utils.get(guild.emojis, name="pokeball") or "<:pokeball:1419845300742520964>")
     confirmation_msg = (
     f"✅ **Trade completed!**\n"
-    f"{self.i_user.mention} traded {pokeball_emoji} **{self.my_pokemon['name'].capitalize()} (Lvl: {self.my_pokemon.get('level', 1)})** "
-    f"for {self.allowed_user.mention}'s {pokeball_emoji} **{self.for_pokemon['name'].capitalize()} (Lvl: {self.for_pokemon.get('level', 1)})**."
+    f"**{self.i_user.display_name}** traded {pokeball_emoji} **{self.my_pokemon['name'].capitalize()} (Lvl: {self.my_pokemon.get('level', 1)})** "
+    f"for **{self.allowed_user.display_name}'s** {pokeball_emoji} **{self.for_pokemon['name'].capitalize()} (Lvl: {self.for_pokemon.get('level', 1)})**."
     )
     # send confirmation to the "tall-grass" channel in the guild named "Jacobpno1"
     embed = discord.Embed(description=confirmation_msg, color=discord.Color.green())
@@ -124,7 +126,7 @@ class TradeConfirmView(View):
       if channel is not None and isinstance(channel, discord.TextChannel):
         await channel.send(embed=embed)
     
-    await self.disable_and_update(interaction, confirmation_msg, discord.Color.green())
+    await self.disable_and_update(interaction, confirmation_msg, discord.Color.green(), notify_user=user1)
     # --- Evolution Check ---
     evolve_no = get_next_evolution_number(
     pokemon_name=user1_pokemon["name"],
@@ -160,11 +162,13 @@ class TradeConfirmView(View):
 
   @discord.ui.button(label="Reject", style=discord.ButtonStyle.red)
   async def reject(self, interaction: discord.Interaction, button: Button):
-    print(f"[TRADE] {interaction.user.display_name} pressed REJECT")
+    print(f"[TRADE] **{interaction.user.display_name}** pressed REJECT")
+    self.my_pokemon
     await self.disable_and_update(
       interaction,
-      f"❌ Trade rejected by {interaction.user.mention}.",
+      f"❌ Trade Rejected: **{self.i_user.display_name}'s {self.my_pokemon['name'].capitalize()} (Lvl: {self.my_pokemon.get('level', 1)})** for **{self.allowed_user.display_name}'s {self.for_pokemon['name'].capitalize()} (Lvl: {self.for_pokemon.get('level', 1)})**.",
       discord.Color.red(),
+      notify_user=self.i_user
     )
 
 
@@ -234,12 +238,12 @@ class TradePokemon(commands.Cog):
 
     # Send trade offer
     await user.send(
-      f"**{i_user.mention} wants to trade Pokémon!**",
+      f"**{i_user.display_name} wants to trade Pokémon!**",
       embeds=[my_pokemon_embed, for_pokemon_embed],
       view=view
     )
     interaction_msg = (
-      f"Trade offer sent to {user.mention} to trade "
+      f"Trade offer sent to {user.display_name} to trade "
       f"{pokeball_emoji} **{my_pokemon['name'].capitalize()} (lvl: {my_pokemon.get('level', 1)})** "
       f"for their {pokeball_emoji} **{for_pokemon['name'].capitalize()} (lvl: {for_pokemon.get('level', 1)})**."
     )
