@@ -38,6 +38,15 @@ class TradeConfirmView(View):
       return None
     return latest
 
+  def _get_pokemon_for_trade(self, pokemon_doc: PokemonDoc, owner: discord.User | discord.Member) -> Optional[PokemonDoc]:
+    pokemon_id = pokemon_doc.get("_id") if pokemon_doc else None
+    if pokemon_id is None:
+      return None
+    latest = db.pokemon.get_pokemon_by_id(pokemon_id)
+    if latest is None or latest.get("caught_by") != owner.id or latest.get("caught") is False:
+      return None
+    return latest
+
   async def interaction_check(self, interaction: discord.Interaction) -> bool:
     """Ensure only the target user can interact."""
     if interaction.user.id != self.allowed_user.id:
@@ -71,15 +80,18 @@ class TradeConfirmView(View):
     user1_pokemon = self._get_pokemon_for_trade(self.my_pokemon, user1)
     if not user1_pokemon:
       pokemon_name = self.my_pokemon.get('name', 'that Pokémon') if isinstance(self.my_pokemon, dict) else 'that Pokémon'
-      confirmation_msg = f"[TRADE FAILED] **{user1.display_name}** does not own **{pokemon_name}** anymore."
-      await self.disable_and_update(interaction, confirmation_msg, discord.Color.red(), notify_user=user1)  
+      confirmation_msg = f"[TRADE FAILED] {user1.mention} does not own {pokemon_name} anymore."
+      await self.disable_and_update(interaction, confirmation_msg, discord.Color.red())  
       return
     user2_pokemon = self._get_pokemon_for_trade(self.for_pokemon, user2)
     if not user2_pokemon:
       pokemon_name = self.for_pokemon.get('name', 'that Pokémon') if isinstance(self.for_pokemon, dict) else 'that Pokémon'
-      confirmation_msg = f"[TRADE FAILED] **{user2.display_name}** does not own **{pokemon_name}** anymore."
-      await self.disable_and_update(interaction, confirmation_msg, discord.Color.red(), notify_user=user1)   
+      confirmation_msg = f"[TRADE FAILED] {user2.mention} does not own {pokemon_name} anymore."
+      await self.disable_and_update(interaction, confirmation_msg, discord.Color.red())   
       return 
+
+    self.my_pokemon = user1_pokemon
+    self.for_pokemon = user2_pokemon
 
     self.my_pokemon = user1_pokemon
     self.for_pokemon = user2_pokemon
