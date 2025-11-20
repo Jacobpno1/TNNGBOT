@@ -1,6 +1,7 @@
 from bson import ObjectId
 from discord import User, Member
 from datetime import datetime
+import re
 from tnngbot.db.base import BaseService
 from tnngbot.schemas.pokemon import PokemonDoc
 from typing import NotRequired, Optional, List, Union
@@ -73,6 +74,25 @@ class PokemonService(BaseService):
         )
         return result.matched_count == 1
 
+    def get_pokemon_by_number(self, number: int, sort_by: str = "caught_at", ascending: bool = True) -> List[PokemonDoc]:
+        valid_fields = {"caught_at", "level", "name", "number"}
+        sort_field = sort_by if sort_by in valid_fields else "caught_at"
+        sort_direction = 1 if ascending else -1
+        query = {"number": number, "caught": True}
+        pokemon_list: List[PokemonDoc] = list(self.col.find(query).sort(sort_field, sort_direction)) or []
+        return pokemon_list
+
+    def get_pokemon_by_name(self, name: str, sort_by: str = "caught_at", ascending: bool = True) -> List[PokemonDoc]:
+        if not name:
+            return []
+        valid_fields = {"caught_at", "level", "name", "number"}
+        sort_field = sort_by if sort_by in valid_fields else "caught_at"
+        sort_direction = 1 if ascending else -1
+        pattern = re.compile(f"^{re.escape(name)}$", re.IGNORECASE)
+        query = {"name": pattern, "caught": True}
+        pokemon_list: List[PokemonDoc] = list(self.col.find(query).sort(sort_field, sort_direction)) or []
+        return pokemon_list
+
     def get_caught_pokemon(self, user: User | Member, sort_by: str = "number", ascending: bool = True) -> List[PokemonDoc]:
         # Convert boolean into pymongo sort direction
         sort_direction = 1 if ascending else -1
@@ -110,4 +130,3 @@ class PokemonService(BaseService):
         pokemon: Optional[PokemonDoc] = self.col.find_one(query)
 
         return pokemon if pokemon and pokemon.get("caught", False) else None
-
