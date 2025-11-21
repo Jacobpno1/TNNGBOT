@@ -26,6 +26,8 @@ async def load_cogs():
   await client.load_extension("tnngbot.cogs.commands.fuse_pokemon")
   await client.load_extension("tnngbot.cogs.commands.trade_pokemon")
   
+  await client.load_extension("tnngbot.cogs.reactions.throw_pokeball")
+  
   await client.load_extension("tnngbot.cogs.quotes")
 
 async def _main():

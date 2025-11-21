@@ -22,21 +22,28 @@ class PokemonFusion(commands.Cog):
 
   @app_commands.command(name="fuse", description="Fuse two of the same Pokemon to create a stronger version! (The fused Pokemon will be lost)")
   @app_commands.describe(
-    base_pokemon_number="Base pokemon number (1-151)",
+    pokemon_number="Base pokemon number (1-151)",
     base_pokemon_level="Base pokemon level",
-    fused_pokemon_number="Fused pokemon number (1-151)",
+    # fused_pokemon_number="Fused pokemon number (1-151)",
     fused_pokemon_level="Fused pokemon level"
   )
   async def fuse_pokemon(
     self,
     interaction: discord.Interaction,
-    base_pokemon_number: int,
+    pokemon_number: int,
     base_pokemon_level: int,
-    fused_pokemon_number: int,
+    # fused_pokemon_number: int,
     fused_pokemon_level: int
   ):    
 
-    base_pokemon = db.pokemon.get_pokemon_lvl(interaction.user, base_pokemon_number, base_pokemon_level)
+    base_pokemon = db.pokemon.get_pokemon_lvl(interaction.user, pokemon_number, base_pokemon_level)
+    
+    if not base_pokemon:
+      await interaction.response.send_message(
+        f"❗ You do not own a pokemon with number {pokemon_number} at level {base_pokemon_level}.",
+        ephemeral=True
+      )
+      return
     if base_pokemon is None or "_id" not in base_pokemon or base_pokemon["_id"] is None:
       await interaction.response.send_message(
         f"❗ There was an error returning the base pokemon.",
@@ -44,22 +51,22 @@ class PokemonFusion(commands.Cog):
       )
       return
     base_id = base_pokemon["_id"]
-    fused_pokemon = db.pokemon.get_pokemon_lvl(interaction.user, fused_pokemon_number, fused_pokemon_level, exclude_id=base_id)
-    if not base_pokemon:
-      await interaction.response.send_message(
-        f"❗ You do not own a pokemon with number {base_pokemon_number} at level {base_pokemon_level}.",
-        ephemeral=True
-      )
-      return
+    fused_pokemon = db.pokemon.get_pokemon_lvl(interaction.user, pokemon_number, fused_pokemon_level, exclude_id=base_id)
     if not fused_pokemon:
       await interaction.response.send_message(
-        f"❗ You do not own a pokemon with number {fused_pokemon_number} at level {fused_pokemon_level}.",
+        f"❗ You do not own a pokemon with number {pokemon_number} at level {fused_pokemon_level}.",
         ephemeral=True
       )
       return
     if base_pokemon["number"] != fused_pokemon["number"]:
       await interaction.response.send_message(
         f"❗ You can only fuse two of the same Pokémon.",
+        ephemeral=True
+      )
+      return
+    if base_pokemon.get("level", 1) != base_pokemon_level or fused_pokemon.get("level", 1) != fused_pokemon_level:
+      await interaction.response.send_message(
+        f"❗ One of the Pokémon levels provided does not match the stored level.",
         ephemeral=True
       )
       return

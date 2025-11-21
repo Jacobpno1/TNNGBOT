@@ -25,7 +25,8 @@ class PokedexCog(commands.Cog):
   @app_commands.command(name="pokedex", description="List the Pokemon you've caught!")    
   @app_commands.describe(
       sort_by="Choose how to sort your Pokémon",
-      direction="Choose ascending or descending order"
+      direction="Choose ascending or descending order",
+      user="User's pokedex to view."
   )
   @app_commands.choices(
       sort_by=[
@@ -48,10 +49,11 @@ class PokedexCog(commands.Cog):
     interaction: discord.Interaction,
     sort_by: str = "number",
     direction: str = "asc",
-    duplicates: str = "show"
+    duplicates: str = "show",
+    user: discord.Member | None = None
   ):
-    caught_pokemon = db.pokemon.get_my_caught_pokemon(
-      interaction.user, sort_by=sort_by, ascending=(direction == "asc")
+    caught_pokemon = db.pokemon.get_caught_pokemon(
+      user if user is not None else interaction.user, sort_by=sort_by, ascending=(direction == "asc")
     )
 
     if caught_pokemon:
@@ -74,13 +76,13 @@ class PokedexCog(commands.Cog):
       header = f"{'No.':<3} {'Name':<11} {'Lvl':<3} {'Caught On'}\n" + ("-" * 40) + "\n"
       local_tz = pytz.timezone("US/Eastern")
 
-      prefix = f"**{interaction.user.display_name}'s Pokedex**\n"
+      prefix = f"**{user.display_name if user is not None else interaction.user.display_name}'s Pokedex**\n"
 
       async def fetch_rows(dupe_mode: Optional[str] = None, sort_key: Optional[str] = None, ascending_flag: Optional[bool] = None):
         effective_sort = sort_key or sort_by
         effective_asc = (direction == "asc") if ascending_flag is None else ascending_flag
-        fresh = db.pokemon.get_my_caught_pokemon(
-          interaction.user, sort_by=effective_sort, ascending=effective_asc
+        fresh = db.pokemon.get_caught_pokemon(
+          user if user is not None else interaction.user, sort_by=effective_sort, ascending=effective_asc
         )
         if not fresh:
           return [], "Total Caught: 0, Unique: 0, Duplicates: 0"

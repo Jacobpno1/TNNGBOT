@@ -1,6 +1,9 @@
+import os
 import discord
 import requests
 from discord.ui import View, Button
+
+guild_name = os.environ["guildName"]
 
 class EvolveConfirmView(View):
   def __init__(self, base_pokemon, evolve_no, db, interaction: discord.Interaction, user: discord.User | discord.Member):
@@ -40,14 +43,17 @@ class EvolveConfirmView(View):
     )
     embed.set_image(url=embed_image)
     
+    
+    guild = discord.utils.get(interaction.client.guilds, name=guild_name) 
+    
     channel = None
     if interaction.guild is not None:
-      channel = discord.utils.get(interaction.guild.channels, name="tall-grass")      
-    if channel is not None and isinstance(channel, discord.TextChannel) and interaction.channel is not None and channel.id == interaction.channel.id:
-      await interaction.response.edit_message(view=None)
-      await channel.send(embed=embed)        
-    else:
-      await interaction.response.edit_message(embed=embed, view=None)
+      channel = discord.utils.get(interaction.guild.channels, name="tall-grass") 
+    elif guild is not None:
+      channel = discord.utils.get(guild.channels, name="tall-grass")    
+    if channel is not None and isinstance(channel, discord.TextChannel):    
+      await channel.send(embed=embed)            
+    await interaction.response.edit_message(embed=embed, view=None)
     self.confirmed = True
     self.stop()
 
