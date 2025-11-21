@@ -20,3 +20,7 @@ class PokemonDoc(TypedDict):
     previous_owners: NotRequired[List[str]]
     _v: int
     
+class PokemonCatchResult(TypedDict):
+    status: str  # "caught", "escaped", "already_caught", "error"
+    pokemon: Optional[PokemonDoc]
+    error: NotRequired[str]

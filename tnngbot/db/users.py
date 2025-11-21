@@ -1,6 +1,7 @@
 import discord
 from tnngbot.db.base import BaseService
 from tnngbot.schemas.users import UserDoc
+from datetime import datetime
 
 class UserService(BaseService):
   
@@ -27,3 +28,16 @@ class UserService(BaseService):
         "_v": 0
       }
     return user
+  
+  def set_ball_cooldown(self, user_id: int, ball_type: str, expiry_dt: datetime) -> None:
+    """
+    Set only the single cooldown field atomically: avoids overwriting other fields.
+    """
+    self.col.update_one(
+      {"user_id": user_id},
+      {
+        "$set": {f"ball_cooldowns.{ball_type}": expiry_dt},
+        "$currentDate": {"updated_at": True},
+      },
+      upsert=True,
+    )
