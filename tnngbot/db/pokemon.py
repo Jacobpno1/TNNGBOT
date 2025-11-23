@@ -10,7 +10,7 @@ MAX_RETRIES = 5
 RETRY_BACKOFF = 0.05  # seconds base
 
 class PokemonService(BaseService):
-  def create_pokemon(self, number: int, name: str, image_url: str, message_id: str, catch_count: int, level: int, flee: bool) -> None:
+  def create_pokemon(self, number: int, name: str, image_url: str, message_id: str, catch_count: int, level: int, flees: bool) -> None:
     document: PokemonDoc = {
       "number": number,
       "name": name,
@@ -22,11 +22,10 @@ class PokemonService(BaseService):
       "caught": False,
       "caught_by": None,
       "caught_at": None,
-      "created_at": datetime.now().isoformat(),            
+      "created_at": datetime.now().isoformat(),   
+      "flees": flees,        
       "_v": 0,
     }
-    if (flee is True):
-      document["flees"] = True
     result = self.col.insert_one(document)
     print("Inserted Pokemon:", result.inserted_id)
   
