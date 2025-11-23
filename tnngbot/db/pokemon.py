@@ -1,6 +1,7 @@
 from bson import ObjectId
 from discord import User, Member
 from datetime import datetime
+import re
 from tnngbot.db.base import BaseService
 from tnngbot.schemas.pokemon import PokemonCatchResult, PokemonDoc
 from typing import Any, NotRequired, Optional, List, Union, Dict
@@ -56,10 +57,10 @@ class PokemonService(BaseService):
   # def add_catch_attempt(self, message_id: str, user: User | Member, pokemon: PokemonDoc, attempt_count:int) -> bool:
   #   catch_attempts = pokemon["catch_attempts"]
   #   if attempt_count > 0:
-  #     catch_attempts.extend([str(user.id)] * attempt_count)
+  #   catch_attempts.extend([str(user.id)] * attempt_count)
   #   result = self.col.update_one(
-  #     {"message_id": message_id, "_v": pokemon["_v"]},
-  #     {"$set": {"catch_attempts": catch_attempts, "_v": pokemon["_v"] + 1}},
+  #   {"message_id": message_id, "_v": pokemon["_v"]},
+  #   {"$set": {"catch_attempts": catch_attempts, "_v": pokemon["_v"] + 1}},
   #   )
   #   return result.matched_count == 1
   
@@ -83,7 +84,7 @@ class PokemonService(BaseService):
         "$set": {
           "caught": True,
           "caught_by": user.id,
-          "caught_at": datetime.now().isoformat(),          
+          "caught_at": datetime.now().isoformat(),      
         },
         "$inc": {"_v": 1}
       },
@@ -136,6 +137,26 @@ class PokemonService(BaseService):
   def get_pokemon_by_message_id(self, message_id: str) -> Optional[PokemonDoc]:
     return self.col.find_one({"message_id": message_id})
 
+  def get_pokemon_by_number(self, number: int, sort_by: str = "caught_at", ascending: bool = True) -> List[PokemonDoc]:
+    valid_fields = {"caught_at", "level", "name", "number"}
+    sort_field = sort_by if sort_by in valid_fields else "caught_at"
+    sort_direction = 1 if ascending else -1
+    query = {"number": number, "caught": True}
+    pokemon_list: List[PokemonDoc] = list(self.col.find(query).sort(sort_field, sort_direction)) or []
+    return pokemon_list
+
+  def get_pokemon_by_name(self, name: str, sort_by: str = "caught_at", ascending: bool = True, name_is_substring: bool = False) -> List[PokemonDoc]:
+    if not name:
+      return []
+    valid_fields = {"caught_at", "level", "name", "number"}
+    sort_field = sort_by if sort_by in valid_fields else "caught_at"
+    sort_direction = 1 if ascending else -1
+    target_name = f"{re.escape(name)}" if name_is_substring else f"^{re.escape(name)}$"
+    pattern = re.compile(target_name, re.IGNORECASE)
+    query = {"name": pattern, "caught": True}
+    pokemon_list: List[PokemonDoc] = list(self.col.find(query).sort(sort_field, sort_direction)) or []
+    return pokemon_list
+  
   def add_catch_attempt_atomic(self, message_id: str, user_id: str, attempt_count: int, expected_v: int) -> dict:
     """
     Atomic push of attempt(s) and bump _v. Uses optimistic concurrency via expected_v.
@@ -159,13 +180,13 @@ class PokemonService(BaseService):
     Try to catch the pokemon in an atomic, versioned way.
 
     Logic:
-     - Re-read doc
-     - If already caught -> return already_caught + fresh doc
-     - If user has already attempted -> return already_attempted + fresh doc
-     - Compute whether catchable
-       - If not catchable -> attempt to $push catch_attempts and $inc _v (optimistic filter)
-       - If catchable -> update doc to set caught=True, caught_by, caught_at and $inc _v (optimistic filter)
-     - If update fails due to version mismatch, retry a few times
+      - Re-read doc
+      - If already caught -> return already_caught + fresh doc
+      - If user has already attempted -> return already_attempted + fresh doc
+      - Compute whether catchable
+        - If not catchable -> attempt to $push catch_attempts and $inc _v (optimistic filter)
+        - If catchable -> update doc to set caught=True, caught_by, caught_at and $inc _v (optimistic filter)
+      - If update fails due to version mismatch, retry a few times
     """
     for attempt in range(MAX_RETRIES):
       doc = self.get_pokemon_by_message_id(message_id)
