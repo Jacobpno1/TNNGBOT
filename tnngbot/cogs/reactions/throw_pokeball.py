@@ -59,7 +59,7 @@ class ThrowPokeball(commands.Cog):
     # embed.set_thumbnail(url=pokemon_doc.get("image_url", ""))
     embed = discord.Embed(title=f"A wild {pokemon_doc['name']} appears! [{pokemon_doc['number']}]")
     embed.set_thumbnail(url=pokemon_doc.get("image_url", ""))  
-    embed.set_footer(text=f"Lvl: {pokemon_doc.get("level", 1)}")
+    embed.set_footer(text=f"Lvl: {pokemon_doc.get('level', 1)}")
     # add fields that you previously used: e.g. attempts, footer as pokeNo, status etc.    
     for attempt_user_id in list(pokemon_doc.get("catch_attempts", [])):
       user = self.bot.get_user(int(attempt_user_id))
