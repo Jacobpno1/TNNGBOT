@@ -43,8 +43,8 @@ class WhoHasPokemonCog(commands.Cog):
       if not trimmed_name:
         pokemon_name = None
       else:
-        if not trimmed_name.isalpha():
-          await interaction.response.send_message("Pokémon names must only include letters.", ephemeral=True)
+        if not all(ch.isalpha() or ch == '-' for ch in trimmed_name):
+          await interaction.response.send_message("Pokémon names must only include letters or dashes.", ephemeral=True)
           return
         if len(trimmed_name) > 10:
           await interaction.response.send_message("Pokémon names must be 10 characters or fewer.", ephemeral=True)
