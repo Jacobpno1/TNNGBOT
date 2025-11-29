@@ -26,8 +26,8 @@ class Pokemon(commands.Cog):
     # Do not reply if the message is from the bot itself
     if message.author == self.bot.user:
       return 
-    if random.randrange(1, int(os.environ['pokemonSpawnRate'])) == 1:
-      await self.spawnPokemon(message)   
+    if random.randrange(1, int(os.environ['pokemonSpawnRate'])) == 1:      
+      await self.spawnPokemon(message)
       
   @commands.Cog.listener()
   async def on_raw_reaction_add(self, payload):  
@@ -77,23 +77,29 @@ class Pokemon(commands.Cog):
     else:
       await interaction.response.send_message("You do not have permission to use this command.", ephemeral=True)        
   
-  async def spawnPokemon(self, message, pokemon_number=None, catch_count=None, level=None, flees=False):
-    game_state = db.game_state.get_game_state(ObjectId(os.environ['gameStateObjectId']))
-    last_spawn = game_state.get("last_pokemon_spawn") if game_state else None
-    if pokemon_number is None:      
-      if last_spawn and last_spawn["pokemon"].get("flees", False) == True:        
-        pokeNo = last_spawn["pokemon"]["number"]
-        level = last_spawn["pokemon"].get("level", 1)        
-      pokePool: list[int] = []
-      with open('tnngbot/static/pokemonPool.json', 'r') as pokePoolJson:
-        pokePool = json.load(pokePoolJson)
-      poolNo = random.randrange(0, len(pokePool))
-      pokeNo = pokePool[poolNo]
-      flees = random.choices([True, False], weights=[1, 20])[0]
+  async def spawnPokemon(self, message, pokemon_number=None, catch_count=None, level=None, flees=None):  
+    if pokemon_number is None:    
+      fled_pokemon = db.game_state.retrieve_fled_pokemon()  
+      if fled_pokemon:
+        pokeNo = fled_pokemon.get("number")        
+      else:
+        pokePool: list[int] = []
+        with open('tnngbot/static/pokemonPool.json', 'r') as pokePoolJson:
+          pokePool = json.load(pokePoolJson)
+        poolNo = random.randrange(0, len(pokePool))
+        pokeNo = pokePool[poolNo]
     else:
       pokeNo = pokemon_number
+    
+    if catch_count is None:
+      catch_count = random.randint(0, int(os.environ['pokemonMaxAttempts'])) 
+      
     if level is None:
       level = random.choices([1, 2, 3], weights=[6, 3, 1])[0]
+   
+    if flees is None:
+      flees = random.choices([True, False], weights=[1, 20])[0]    
+      
     r = requests.get("https://pokeapi.co/api/v2/pokemon/" + str(pokeNo)) 
     pokemon = r.json()
     embed = discord.Embed(title=f"A wild {pokemon['name']} appears! [{pokeNo}]")
@@ -101,12 +107,12 @@ class Pokemon(commands.Cog):
     embed.set_footer(text=f"Lvl: {level}")
     channel = discord.utils.get(message.guild.channels, name="tall-grass")
     new_message = await channel.send(embed=embed)
-    catch_count = catch_count if catch_count is not None else random.randint(0, int(os.environ['pokemonMaxAttempts']))    
+   
     name = pokemon["name"]
     image_url = pokemon["sprites"]["front_default"]
     
     pokemon_doc = db.pokemon.create_pokemon(pokeNo, name, image_url, str(new_message.id), catch_count, level, flees)
-    db.game_state.set_last_pokemon_spawn(ObjectId(os.environ['gameStateObjectId']), {
+    db.game_state.set_last_pokemon_spawn({
       "last_pokemon_spawn_datetime": discord.utils.utcnow(),
       "pokemon": pokemon_doc
     })

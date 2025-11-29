@@ -1,6 +1,12 @@
+import os
 from tnngbot.db.base import BaseService
 from tnngbot.schemas.game_state import GameState
 from bson import ObjectId
+
+from tnngbot.schemas.pokemon import PokemonDoc
+
+
+GAME_STATE_ID = ObjectId(os.environ['gameStateObjectId'])
 
 class GameStateService(BaseService):
   
@@ -16,9 +22,9 @@ class GameStateService(BaseService):
     print("Matched:", result.matched_count, "Modified:", result.modified_count)
     return result.matched_count == 1
   
-  def set_last_pokemon_spawn(self, game_state_id: ObjectId, last_pokemon_spawn) -> bool:
+  def set_last_pokemon_spawn(self, last_pokemon_spawn) -> bool:
     result = self.col.update_one(
-      {"_id": game_state_id},
+      {"_id": GAME_STATE_ID},
       {
         "$set": {
           "last_pokemon_spawn": last_pokemon_spawn
@@ -28,6 +34,32 @@ class GameStateService(BaseService):
     )
     return result.matched_count == 1
   
-  def get_game_state(self, game_state_id) -> GameState | None:
-    game_state: GameState | None = self.col.find_one({"_id": game_state_id})
+  def add_fled_pokemon(self, pokemon: PokemonDoc) -> bool:
+    result = self.col.update_one(
+      {"_id": GAME_STATE_ID},
+      {
+        "$push": {"fled_pokemon": pokemon},
+        "$inc": {"_v": 1}
+      },
+    )
+    return result.matched_count == 1
+  
+  #get flex pokemon at index 0 of fled_pokemon list and remove it from the list
+  def retrieve_fled_pokemon(self) -> PokemonDoc | None:
+    
+    game_state: GameState | None = self.col.find_one({"_id": GAME_STATE_ID})
+    if game_state and "fled_pokemon" in game_state and len(game_state["fled_pokemon"]) > 0:
+      fled_pokemon: PokemonDoc = game_state["fled_pokemon"].pop(0)
+      self.col.update_one(
+        {"_id": GAME_STATE_ID},
+        {
+          "$set": {"fled_pokemon": game_state["fled_pokemon"]},
+          "$inc": {"_v": 1}
+        },
+      )
+      return fled_pokemon
+    return None
+  
+  def get_game_state(self) -> GameState | None:
+    game_state: GameState | None = self.col.find_one({"_id": GAME_STATE_ID})
     return game_state

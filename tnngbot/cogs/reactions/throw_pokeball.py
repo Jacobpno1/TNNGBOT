@@ -2,6 +2,7 @@ from collections import Counter
 from datetime import datetime, timedelta
 import os
 from typing import Union
+from bson import ObjectId
 import discord
 import random
 from discord import app_commands 
@@ -157,7 +158,8 @@ class ThrowPokeball(commands.Cog):
         embed = await self.build_embed_from_pokemon(fresh_pokemon)
         embed.set_thumbnail(url=None)
         embed.add_field(name=f"Oh no {user.display_name}! {fresh_pokemon['name'].capitalize()} fled before it could be caught!", value="", inline=False)  
-        await message.edit(embed=embed)    
+        await message.edit(embed=embed) 
+        db.game_state.add_fled_pokemon(fresh_pokemon)   
 
       else:
         # unexpected error
