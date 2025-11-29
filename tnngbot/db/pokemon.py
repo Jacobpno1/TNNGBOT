@@ -11,7 +11,7 @@ MAX_RETRIES = 5
 RETRY_BACKOFF = 0.05  # seconds base
 
 class PokemonService(BaseService):
-  def create_pokemon(self, number: int, name: str, image_url: str, message_id: str, catch_count: int, level: int, flees: bool) -> None:
+  def create_pokemon(self, number: int, name: str, image_url: str, message_id: str, catch_count: int, level: int, flees: bool) -> PokemonDoc:
     document: PokemonDoc = {
       "number": number,
       "name": name,
@@ -29,6 +29,7 @@ class PokemonService(BaseService):
     }
     result = self.col.insert_one(document)
     print("Inserted Pokemon:", result.inserted_id)
+    return document
   
   def update_pokemon(self, pokemon: PokemonDoc):
     _v = pokemon["_v"]
@@ -210,10 +211,11 @@ class PokemonService(BaseService):
 
       if not catchable:
         # Try to record the attempt atomically
+        count = max(1, ball_bonus + 1)
         res = self.col.update_one(
           {"message_id": message_id, "_v": current_v, "caught": {"$ne": True}},
           {
-            "$push": {"catch_attempts": {"$each": [str(user_id)]}},
+            "$push": {"catch_attempts": {"$each": [str(user_id)] * count}},
             "$inc": {"_v": 1},
           },
         )
