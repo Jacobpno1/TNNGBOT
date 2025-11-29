@@ -18,6 +18,8 @@ class PokemonDoc(TypedDict):
     created_at: str    
     traded_at: NotRequired[str]
     previous_owners: NotRequired[List[str]]
+    flees: NotRequired[bool]
+    fled: NotRequired[bool]
     _v: int
     
 class PokemonCatchResult(TypedDict):

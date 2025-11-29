@@ -1,4 +1,5 @@
 from pymongo import MongoClient
+from tnngbot.db.game_state import GameStateService
 from tnngbot.db.pokemon import PokemonService
 from tnngbot.db.messages import MessageService
 from tnngbot.db.users import UserService
@@ -13,3 +14,4 @@ class MongoDBManager:
         self.messages = MessageService(self.client, database, "Messages")
         self.pokemon = PokemonService(self.client, database, "Pokemon")
         self.users = UserService(self.client, database, "Users")
+        self.game_state = GameStateService(self.client, database, "GameState")
