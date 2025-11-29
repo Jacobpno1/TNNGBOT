@@ -108,10 +108,31 @@ class PokedexCog(commands.Cog):
           counts = _Counter(p["number"] for p in fresh)
           fresh = [p for p in fresh if counts[p["number"]] > 1]
 
+        def to_local_datetime(raw_value) -> datetime:
+          if raw_value is None:
+            return datetime.now(local_tz)
+          text_value = str(raw_value)
+          candidates = [text_value]
+          if text_value.endswith("Z"):
+            candidates.append(text_value[:-1] + "+00:00")
+          for candidate in candidates:
+            try:
+              parsed = datetime.fromisoformat(candidate)
+              break
+            except (ValueError, TypeError):
+              parsed = None
+          if parsed is None:
+            return datetime.now(local_tz)
+          if parsed.tzinfo is None:
+            try:
+              return local_tz.localize(parsed)
+            except Exception:
+              return datetime.now(local_tz)
+          return parsed.astimezone(local_tz)
+
         rows_local: List[str] = []
         for p in fresh:
-          dt = datetime.fromisoformat(p["caught_at"]) if "caught_at" in p and p["caught_at"] else datetime.now()
-          dt_local = dt.astimezone(local_tz)
+          dt_local = to_local_datetime(p.get("caught_at"))
           formatted_date = dt_local.strftime("%m/%d/%y %I:%M %p")
           # rows_local.append(f"◓  {p['number']:<5} {p['name'].capitalize():<15} {formatted_date} EST\n")
           # Shrink the table width for mobile users
