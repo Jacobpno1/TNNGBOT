@@ -1,4 +1,5 @@
 import os
+from bson import ObjectId
 import discord
 import random
 from discord import app_commands 
@@ -62,24 +63,33 @@ class Pokemon(commands.Cog):
       await interaction.response.send_message("You haven't caught that pokemon.", ephemeral=True) 
 
   @app_commands.command(name="spawn_pokemon", description="[Admin Only] Spawn a pokemon by number")
-  @app_commands.describe(pokemon_number="The number of the Pokemon you want to spawn (1-151)", catch_count="How many attempts before catching", level="Pokemon level", flee="Pokemon flees.")
-  async def spawn_pokemon(self, interaction: discord.Interaction, pokemon_number: str, catch_count:int = 0, level:int = 1, flee:bool=False):  
+  @app_commands.describe(pokemon_number="The number of the Pokemon you want to spawn (1-151)", catch_count="How many attempts before catching", level="Pokemon level", flees="Pokemon flees.")
+  async def spawn_pokemon(self, interaction: discord.Interaction, pokemon_number: int | None = None, catch_count:int|None = None, level:int = 1, flees:bool=False):  
     if not isinstance(interaction.user, discord.Member):
       await interaction.response.send_message("This command can only be used in a server.", ephemeral=True)
       return
     if interaction.user is not None and interaction.user.guild_permissions.administrator:
-      await self.spawnPokemon(interaction, int(pokemon_number), catch_count=int(catch_count), level=level, flee=flee)
+      if pokemon_number is None:
+        await self.spawnPokemon(interaction, catch_count=catch_count, level=level, flees=flees)
+      else:
+        await self.spawnPokemon(interaction, pokemon_number, catch_count=catch_count, level=level, flees=flees)
       await interaction.response.send_message(f"Spawned pokemon number {pokemon_number}!", ephemeral=True) 
     else:
       await interaction.response.send_message("You do not have permission to use this command.", ephemeral=True)        
   
-  async def spawnPokemon(self, message, pokemon_number=None, catch_count=None, level=None):
-    if pokemon_number is None:
+  async def spawnPokemon(self, message, pokemon_number=None, catch_count=None, level=None, flees=False):
+    game_state = db.game_state.get_game_state(ObjectId(os.environ['gameStateObjectId']))
+    last_spawn = game_state.get("last_pokemon_spawn") if game_state else None
+    if pokemon_number is None:      
+      if last_spawn and last_spawn["pokemon"].get("flees", False) == True:        
+        pokeNo = last_spawn["pokemon"]["number"]
+        level = last_spawn["pokemon"].get("level", 1)        
       pokePool: list[int] = []
       with open('tnngbot/static/pokemonPool.json', 'r') as pokePoolJson:
         pokePool = json.load(pokePoolJson)
       poolNo = random.randrange(0, len(pokePool))
       pokeNo = pokePool[poolNo]
+      flees = random.choices([True, False], weights=[1, 20])[0]
     else:
       pokeNo = pokemon_number
     if level is None:
@@ -95,7 +105,11 @@ class Pokemon(commands.Cog):
     name = pokemon["name"]
     image_url = pokemon["sprites"]["front_default"]
     
-    db.pokemon.create_pokemon(pokeNo, name, image_url, str(new_message.id), catch_count, level, flee)
+    pokemon_doc = db.pokemon.create_pokemon(pokeNo, name, image_url, str(new_message.id), catch_count, level, flees)
+    db.game_state.set_last_pokemon_spawn(ObjectId(os.environ['gameStateObjectId']), {
+      "last_pokemon_spawn_datetime": discord.utils.utcnow(),
+      "pokemon": pokemon_doc
+    })
   
 async def setup(bot: commands.Bot):
   await bot.add_cog(Pokemon(bot))

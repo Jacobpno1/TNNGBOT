@@ -16,6 +16,7 @@ class LastPokemonSpawn(TypedDict):
 
 class GameState(TypedDict):
   _id: NotRequired[ObjectId] 
-  last_pokemon_spawn: Optional[LastPokemonSpawn]  
+  last_pokemon_spawn: Optional[LastPokemonSpawn]
+  fleed_pokemon: Optional[List[PokemonDoc]]
   _v: int
     
