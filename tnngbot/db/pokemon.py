@@ -11,7 +11,7 @@ MAX_RETRIES = 5
 RETRY_BACKOFF = 0.05  # seconds base
 
 class PokemonService(BaseService):
-  def create_pokemon(self, number: int, name: str, image_url: str, message_id: str, catch_count: int, level: int, flees: bool) -> PokemonDoc:
+  def create_pokemon(self, number: int, name: str, image_url: str, message_id: str, catch_count: int, level: int) -> PokemonDoc:
     document: PokemonDoc = {
       "number": number,
       "name": name,
