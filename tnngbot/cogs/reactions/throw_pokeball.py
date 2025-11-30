@@ -158,12 +158,13 @@ class ThrowPokeball(commands.Cog):
           expiry = now + timedelta(seconds=int(os.environ.get(f"{ball_type}CooldownSeconds", "0")))
           db.users.set_ball_cooldown(user.id, ball_type, expiry)
       
-      # elif status == "version_mismatch":
-      #   # DB was too contended; best effort: fetch fresh doc and respond
-      #   fresh = fresh_pokemon or db.pokemon.get_pokemon_by_message_id(str(message.id))
-      #   embed = await self.build_embed_from_pokemon(fresh)
-      #   embed.add_field(name="Try again", value="The game is busy — try again in a moment.", inline=False)
-      #   await message.edit(embed=embed)
+      elif status == "fled":
+        embed = await self.build_embed_from_pokemon(fresh_pokemon)
+        embed.set_thumbnail(url=None)
+        embed.add_field(name=f"Oh no {user.display_name}! {fresh_pokemon['name'].capitalize()} broke free!", value="", inline=False)
+        embed.add_field(name=f"{fresh_pokemon['name'].capitalize()} fled before it could be caught!", value="", inline=False)  
+        await message.edit(embed=embed) 
+        db.game_state.add_fled_pokemon(fresh_pokemon)   
 
       else:
         # unexpected error

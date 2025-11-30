@@ -73,13 +73,18 @@ class Pokemon(commands.Cog):
     else:
       await interaction.response.send_message("You do not have permission to use this command.", ephemeral=True)        
   
-  async def spawnPokemon(self, message, pokemon_number=None, catch_count=None, level=None):
-    if pokemon_number is None:
-      pokePool: list[int] = []
-      with open('tnngbot/static/pokemonPool.json', 'r') as pokePoolJson:
-        pokePool = json.load(pokePoolJson)
-      poolNo = random.randrange(0, len(pokePool))
-      pokeNo = pokePool[poolNo]
+  async def spawnPokemon(self, message, pokemon_number=None, catch_count=None, level=None, flees=None):  
+    if pokemon_number is None:    
+      fled_pokemon = db.game_state.retrieve_fled_pokemon()  
+      if fled_pokemon:
+        pokeNo = fled_pokemon.get("number")     
+        level = fled_pokemon.get("level", 1)   
+      else:
+        pokePool: list[int] = []
+        with open('tnngbot/static/pokemonPool.json', 'r') as pokePoolJson:
+          pokePool = json.load(pokePoolJson)
+        poolNo = random.randrange(0, len(pokePool))
+        pokeNo = pokePool[poolNo]
     else:
       pokeNo = pokemon_number
     if level is None:
