@@ -11,7 +11,7 @@ MAX_RETRIES = 5
 RETRY_BACKOFF = 0.05  # seconds base
 
 class PokemonService(BaseService):
-  def create_pokemon(self, number: int, name: str, image_url: str, message_id: str, catch_count: int, level: int) -> PokemonDoc:
+  def create_pokemon(self, number: int, name: str, image_url: str, message_id: str, catch_count: int, level: int, flees: bool) -> PokemonDoc:
     document: PokemonDoc = {
       "number": number,
       "name": name,
@@ -23,7 +23,8 @@ class PokemonService(BaseService):
       "caught": False,
       "caught_by": None,
       "caught_at": None,
-      "created_at": datetime.now().isoformat(),
+      "created_at": datetime.now().isoformat(),   
+      "flees": flees,        
       "_v": 0,
     }
     result = self.col.insert_one(document)
@@ -50,20 +51,6 @@ class PokemonService(BaseService):
   def user_has_pokemon(self, user_id: int, number: int):
     pokemon: PokemonDoc | None = self.col.find_one({"caught_by": user_id, "number": number})
     return pokemon is not None
-
-  # def get_pokemon_by_message_id(self, message_id: str) -> Optional[PokemonDoc]:
-  #   pokemon: PokemonDoc | None = self.col.find_one({"message_id": message_id})
-  #   return pokemon
-
-  # def add_catch_attempt(self, message_id: str, user: User | Member, pokemon: PokemonDoc, attempt_count:int) -> bool:
-  #   catch_attempts = pokemon["catch_attempts"]
-  #   if attempt_count > 0:
-  #   catch_attempts.extend([str(user.id)] * attempt_count)
-  #   result = self.col.update_one(
-  #   {"message_id": message_id, "_v": pokemon["_v"]},
-  #   {"$set": {"catch_attempts": catch_attempts, "_v": pokemon["_v"] + 1}},
-  #   )
-  #   return result.matched_count == 1
   
   def add_catch_attempt(self, message_id: str, user: User | Member, pokemon: PokemonDoc, attempt_count:int) -> bool:
     if attempt_count <= 0:
@@ -84,8 +71,22 @@ class PokemonService(BaseService):
       {
         "$set": {
           "caught": True,
+                    "fled": False,
           "caught_by": user.id,
           "caught_at": datetime.now().isoformat(),      
+        },
+        "$inc": {"_v": 1}
+      },
+    )
+    return result.matched_count == 1      
+    
+  def pokemon_flees(self, message_id: str, pokemon: PokemonDoc) -> bool:
+    result = self.col.update_one(
+      {"message_id": message_id, "_v": pokemon["_v"]},
+      {
+        "$set": {
+          "fled": True,                    
+          "caught_at": datetime.now().isoformat(),          
         },
         "$inc": {"_v": 1}
       },
@@ -229,21 +230,33 @@ class PokemonService(BaseService):
 
       else:
         # catchable -> attempt to mark as caught in one atomic update
+        set_obj = {}
+        status = ""
         now = datetime.utcnow()
+        if doc.get("flees", False) == True:
+          set_obj = {
+            "fled": True,                    
+            "caught_at": now,          
+          }
+          status = "fled"
+        else:
+          set_obj = {
+            "caught": True,
+            "caught_by": user_id,
+            "caught_at": now,          
+          }
+          status = "caught"
+        
         res = self.col.update_one(
-          {"message_id": message_id, "_v": current_v, "caught": {"$ne": True}},
+          {"message_id": message_id, "_v": current_v, "caught": {"$ne": True}, "fled": {"$ne": True}},
           {
-            "$set": {
-              "caught": True,
-              "caught_by": user_id,
-              "caught_at": now,
-            },
+            "$set": set_obj,
             "$inc": {"_v": 1},
           },
         )
         if res.matched_count == 1:
           fresh = self.get_pokemon_by_message_id(message_id)
-          return {"status": "caught", "pokemon": fresh}
+          return {"status": status, "pokemon": fresh}
         else:
           time.sleep(RETRY_BACKOFF * (attempt + 1))
           continue
