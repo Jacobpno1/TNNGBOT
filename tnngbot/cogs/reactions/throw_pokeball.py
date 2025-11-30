@@ -14,6 +14,7 @@ import requests
 import json
 
 from tnngbot.schemas.pokemon import PokemonDoc
+from tnngbot.utils.type import get_type_emoji_str
 
 # Database setup
 MONGO_DBNAME = os.environ['MONGO_DBNAME']
@@ -58,9 +59,10 @@ class ThrowPokeball(commands.Cog):
     """
     # embed = discord.Embed(title=pokemon_doc.get("name", "Unknown").capitalize())
     # embed.set_thumbnail(url=pokemon_doc.get("image_url", ""))
-    embed = discord.Embed(title=f"A wild {pokemon_doc['name']} appears! [{pokemon_doc['number']}]")
+    embed = discord.Embed(title=f"A wild {pokemon_doc['name']} appears!")
     embed.set_thumbnail(url=pokemon_doc.get("image_url", ""))  
-    embed.set_footer(text=f"Lvl: {pokemon_doc.get('level', 1)}")
+    # embed.set_footer(text=f"Lvl: {pokemon_doc.get('level', 1)}")
+    embed.set_footer(text=f"Lvl: {pokemon_doc.get('level', 1)}     No: {pokemon_doc['number']}     Type: {get_type_emoji_str(pokemon_doc['name'])}")  
     #get unique list of user ids to account for bonuses
     unique_attempts = set(pokemon_doc.get("catch_attempts", []))    
     # add fields that you previously used: e.g. attempts, footer as pokeNo, status etc.    

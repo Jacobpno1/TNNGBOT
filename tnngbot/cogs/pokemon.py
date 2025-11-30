@@ -8,6 +8,8 @@ from tnngbot.db.manager import MongoDBManager
 import requests
 import json
 
+from tnngbot.utils.type import get_type_emoji_str
+
 # Database setup
 MONGO_DBNAME = os.environ['MONGO_DBNAME']
 MONGO_URI = os.environ['MONGO_URI']
@@ -54,10 +56,10 @@ class Pokemon(commands.Cog):
     else:
       caught_pokemon = db.pokemon.get_pokemon( interaction.user, int(pokemon_number))  
     level = 1 if caught_pokemon is None or 'level' not in caught_pokemon else caught_pokemon['level']
-    if caught_pokemon:
+    if caught_pokemon:      
       embed = discord.Embed(title=f"I choose you... <:pokeball:1419845300742520964> {caught_pokemon['name'].capitalize()}!")  
       embed.set_thumbnail(url=caught_pokemon['image_url'])  
-      embed.set_footer(text=f"Lvl: {level}")  
+      embed.set_footer(text=f"Lvl: {level}     No: {caught_pokemon['number']}     Type: {get_type_emoji_str(caught_pokemon['name'])}")  
       await interaction.response.send_message(embed=embed)
     else:
       await interaction.response.send_message("You haven't caught that pokemon.", ephemeral=True) 
@@ -103,9 +105,9 @@ class Pokemon(commands.Cog):
       
     r = requests.get("https://pokeapi.co/api/v2/pokemon/" + str(pokeNo)) 
     pokemon = r.json()
-    embed = discord.Embed(title=f"A wild {pokemon['name']} appears! [{pokeNo}]")
+    embed = discord.Embed(title=f"A wild {pokemon['name']} appears!")
     embed.set_thumbnail(url=pokemon['sprites']['front_default'])  
-    embed.set_footer(text=f"Lvl: {level}")
+    embed.set_footer(text=f"Lvl: {level}     No: {pokeNo}     Type: {get_type_emoji_str(pokemon['name'])}")  
     channel = discord.utils.get(message.guild.channels, name="tall-grass")
     new_message = await channel.send(embed=embed)
    
