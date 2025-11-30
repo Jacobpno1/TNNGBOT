@@ -5,8 +5,10 @@ import random
 from discord import app_commands 
 from discord.ext import commands
 from tnngbot.db.manager import MongoDBManager
+from tnngbot.utils.exponential_probability import exponential_probability
 import requests
 import json
+from datetime import timezone
 
 from tnngbot.utils.type import get_type_emoji_str
 
@@ -27,9 +29,26 @@ class Pokemon(commands.Cog):
       return             
     # Do not reply if the message is from the bot itself
     if message.author == self.bot.user:
-      return 
-    if random.randrange(1, int(os.environ['pokemonSpawnRate'])) == 1:      
-      await self.spawnPokemon(message)
+      return
+    last_spawn = db.game_state.get_last_pokemon_spawn()
+    if last_spawn and last_spawn['last_pokemon_spawn_datetime']:
+      last_spawn_time = last_spawn['last_pokemon_spawn_datetime']     
+      current_time = discord.utils.utcnow()
+      # return if within one minute of last spawn
+      if (current_time - last_spawn_time).total_seconds() < 60:        
+        return      
+      # ensure DB timestamp is timezone-aware before subtracting
+      if getattr(last_spawn_time, "tzinfo", None) is None:
+        last_spawn_time = last_spawn_time.replace(tzinfo=timezone.utc)
+      elapsed_minutes = (current_time - last_spawn_time).total_seconds() / 60
+      max_minutes = int(os.environ['pokemonMaxMinutes'])    
+      probability = 1/int(os.environ['pokemonSpawnRate'])
+      if not exponential_probability(int(elapsed_minutes), max_minutes, probability):        
+        return
+    # Fallback to random spawn if no last spawn time found or probability check fails
+    elif not random.randrange(1, int(os.environ['pokemonSpawnRate'])) == 1:      
+      return
+    await self.spawnPokemon(message)
       
   @commands.Cog.listener()
   async def on_raw_reaction_add(self, payload):  

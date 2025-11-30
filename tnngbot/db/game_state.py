@@ -1,6 +1,6 @@
 import os
 from tnngbot.db.base import BaseService
-from tnngbot.schemas.game_state import GameState
+from tnngbot.schemas.game_state import GameState, LastPokemonSpawn
 from bson import ObjectId
 
 from tnngbot.schemas.pokemon import PokemonDoc
@@ -22,7 +22,7 @@ class GameStateService(BaseService):
     print("Matched:", result.matched_count, "Modified:", result.modified_count)
     return result.matched_count == 1
   
-  def set_last_pokemon_spawn(self, last_pokemon_spawn) -> bool:
+  def set_last_pokemon_spawn(self, last_pokemon_spawn: LastPokemonSpawn) -> bool:
     result = self.col.update_one(
       {"_id": GAME_STATE_ID},
       {
@@ -33,6 +33,12 @@ class GameStateService(BaseService):
       },
     )
     return result.matched_count == 1
+  
+  def get_last_pokemon_spawn(self) -> LastPokemonSpawn | None:
+    game_state: GameState | None = self.col.find_one({"_id": GAME_STATE_ID})
+    if game_state and "last_pokemon_spawn" in game_state:
+      return game_state["last_pokemon_spawn"]
+    return None
   
   def add_fled_pokemon(self, pokemon: PokemonDoc) -> bool:
     result = self.col.update_one(
