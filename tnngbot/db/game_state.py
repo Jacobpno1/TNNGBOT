@@ -1,12 +1,18 @@
+from datetime import datetime, timedelta
 import os
+import time
+
+import discord 
 from tnngbot.db.base import BaseService
-from tnngbot.schemas.game_state import GameState, LastPokemonSpawn
+from tnngbot.schemas.game_state import AltarUpdateResult, GameState, LastPokemonSpawn, PokemonAltar
 from bson import ObjectId
 
 from tnngbot.schemas.pokemon import PokemonDoc
 
 
 GAME_STATE_ID = ObjectId(os.environ['gameStateObjectId'])
+MAX_RETRIES = 5
+RETRY_BACKOFF = 0.05  # seconds base
 
 class GameStateService(BaseService):
   
@@ -69,3 +75,64 @@ class GameStateService(BaseService):
   def get_game_state(self) -> GameState | None:
     game_state: GameState | None = self.col.find_one({"_id": GAME_STATE_ID})
     return game_state
+  
+  def get_altar_state(self) -> PokemonAltar | None:
+    game_state: GameState | None = self.col.find_one({"_id": GAME_STATE_ID})
+    return game_state.get("pokemon_altar", None) if game_state else None
+  
+  def altar_sacrifice(self, type: str) -> AltarUpdateResult:
+    for attempt in range(MAX_RETRIES):
+      game_state = self.get_game_state()      
+      if not game_state:
+        return {"status": "error", "error": "Game state not found."}
+      altar_state = game_state.get("pokemon_altar", None)
+      
+      # initialize altar_state if none
+      if not altar_state:
+        altar_state = {
+          "type_buffs": [],
+          "active_until": discord.utils.utcnow(),
+          "altar_spawn": False
+        }
+      
+      # if within alter_state active until, add type to type_buffs
+      type_buffs = []     
+      if not altar_state.get("active_until", None) and altar_state["active_until"] > discord.utils.utcnow():
+        type_buffs = altar_state.get("type_buffs", [])   
+        #if type buffs length is already 10, do not add more
+        if len(type_buffs) >= 10:
+          return {"status": "max_buffs_reached"}       
+        type_buffs.append(type)          
+      else:
+        type_buffs = [type]
+     
+      
+      # if type_buffs equals 5 or 10 types, set altar_spawn to True
+      altar_spawn = False           
+      if len(type_buffs) == 5 or len(type_buffs) == 10:
+        altar_spawn = True      
+      
+      active_until = discord.utils.utcnow() + timedelta(hours=1)                       
+      
+      res = self.col.update_one(
+        {"_id": GAME_STATE_ID, "_v": game_state["_v"]},
+        {
+          "$set": {
+            "pokemon_altar": {
+              "$push": {"type_buffs": type},
+              "active_until": active_until,            
+              "altar_spawn": altar_spawn
+            }
+          },
+          "$inc": {"_v": 1}
+        },
+      )
+      if res.matched_count == 1:
+        fresh = self.get_altar_state()
+        return {"pokemon_altar": fresh, "status": "updated"}
+      else:
+        time.sleep(RETRY_BACKOFF * (attempt + 1))
+        continue 
+    return {"status": "version_mismatch"}
+  
+  
