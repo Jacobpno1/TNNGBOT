@@ -110,7 +110,7 @@ class SacrificePokemon(commands.Cog):
         return 
                   
       embed = discord.Embed(        
-        title=f"{interaction.user.display_name} sacrificed {pokeball_emoji} {pokemon['name'].capitalize()} (Lvl: {pokemon.get("level", 1)}) on the altar!",
+        title=f"{interaction.user.display_name} sacrificed {pokeball_emoji} {pokemon['name'].capitalize()} (Lvl: {pokemon.get('level', 1)}) on the altar!",
         color=discord.Color.onyx_embed()
       )
       embed.set_thumbnail(url="https://i.ibb.co/VW9W9sNZ/Altar.png")
