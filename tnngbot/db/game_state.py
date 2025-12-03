@@ -116,7 +116,7 @@ class GameStateService(BaseService):
                     
       # Determine how many buffs can be added
       remaining_slots = 10 - len(current_buffs)
-      if remaining_slots <= 0 and active_until <= now:
+      if remaining_slots <= 0 and active_until >= now:
         return {"status": "max_buffs_reached"}
 
       add_count = min(additions, remaining_slots)
