@@ -163,7 +163,7 @@ class SacrificePokemon(commands.Cog):
         await channel.send(embed=embed)   
             
       # Finally, delete the sacrificed pokemon
-      # db.pokemon.delete_pokemon(pokemon) 
+      db.pokemon.delete_pokemon(pokemon) 
     except Exception as e:
       logging.exception("Unexpected error while trying to sacrifice the pokemon: %s", e)
       await interaction.response.send_message(
