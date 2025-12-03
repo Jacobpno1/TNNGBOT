@@ -30,6 +30,17 @@ class Pokemon(commands.Cog):
     # Do not reply if the message is from the bot itself
     if message.author == self.bot.user:
       return
+    probability = 1/int(os.environ['pokemonSpawnRate'])
+    # if altar is active, increase spawn probability
+    altar_state = db.game_state.get_altar_state()
+    if altar_state and altar_state.get("active_until", None):
+      active_until = altar_state["active_until"]
+      # ensure DB timestamp is timezone-aware before subtracting
+      if getattr(active_until, "tzinfo", None) is None:
+        active_until = active_until.replace(tzinfo=timezone.utc)     
+      now = discord.utils.utcnow()
+      if active_until > now:
+        probability *= 2  # double the spawn probability
     last_spawn = db.game_state.get_last_pokemon_spawn()
     if last_spawn and last_spawn['last_pokemon_spawn_datetime']:
       last_spawn_time = last_spawn['last_pokemon_spawn_datetime']     
@@ -38,6 +49,9 @@ class Pokemon(commands.Cog):
       # ensure DB timestamp is timezone-aware before subtracting
       if getattr(last_spawn_time, "tzinfo", None) is None:
         last_spawn_time = last_spawn_time.replace(tzinfo=timezone.utc)
+      # return if within one minute of last spawn
+      if (current_time - last_spawn_time).total_seconds() < 60:        
+        return                  
       if (current_time - last_spawn_time).total_seconds() < 60:        
         return      
       elapsed_minutes = (current_time - last_spawn_time).total_seconds() / 60
@@ -99,18 +113,51 @@ class Pokemon(commands.Cog):
     else:
       await interaction.response.send_message("You do not have permission to use this command.", ephemeral=True)        
   
-  async def spawnPokemon(self, message, pokemon_number=None, catch_count=None, level=None, flees=None):  
+  async def spawnPokemon(self, message, pokemon_number=None, catch_count=None, level: int | None =None, flees=None):  
     if pokemon_number is None:    
       fled_pokemon = db.game_state.retrieve_fled_pokemon()  
       if fled_pokemon:
         pokeNo = fled_pokemon.get("number")     
         level = fled_pokemon.get("level", 1)   
       else:
-        pokePool: list[int] = []
-        with open('tnngbot/static/pokemonPool.json', 'r') as pokePoolJson:
-          pokePool = json.load(pokePoolJson)
-        poolNo = random.randrange(0, len(pokePool))
-        pokeNo = pokePool[poolNo]
+        # if altar is active, c
+        altar_state = db.game_state.get_altar_state()
+        if altar_state and altar_state.get("active_until", None):
+          active_until = altar_state["active_until"]
+          # ensure DB timestamp is timezone-aware before subtracting
+          if getattr(active_until, "tzinfo", None) is None:
+            active_until = active_until.replace(tzinfo=timezone.utc)     
+          now = discord.utils.utcnow()
+          type_buffs = altar_state.get("type_buffs", [])
+          # load pokemon tiers
+          with open("tnngbot/static/pokemon_type_tiers.json", "r") as f:
+            pokemon_type_tiers = json.load(f)
+          type_buffs_index = random.randint(0, len(type_buffs)-1) if altar_state.get("altar_spawn", False) else random.randint(0, 9)
+          if active_until > now and type_buffs_index < len(type_buffs):
+            # get type to spawn from type buffs
+            selected_type = type_buffs[type_buffs_index]
+            # determine tier based on number of buffs and altar_spawn flag
+            if altar_state.get("altar_spawn", False):
+              tier = len(type_buffs) >= 10 and "tier3" or (len(type_buffs) >=5 and "tier2" or "tier1")
+              level = len(type_buffs) >= 10 and 10 or (len(type_buffs) >=5 and 5 or 1)
+              rand_weight = len(type_buffs) >= 10 and 2 or (len(type_buffs) >=5 and 5 or 20)
+              flees = random.choices([True, False], weights=[1, rand_weight])[0]    
+            else:
+              tier = "tier1"
+            possible_pokemon:list[int] = pokemon_type_tiers.get(selected_type, {}).get(tier, [])              
+            pokeNo = possible_pokemon[random.randrange(0, len(possible_pokemon))]
+          else:    
+            pokePool: list[int] = []
+            with open('tnngbot/static/pokemonPool.json', 'r') as pokePoolJson:
+              pokePool = json.load(pokePoolJson)
+            poolNo = random.randrange(0, len(pokePool))
+            pokeNo = pokePool[poolNo]
+        else:    
+            pokePool: list[int] = []
+            with open('tnngbot/static/pokemonPool.json', 'r') as pokePoolJson:
+              pokePool = json.load(pokePoolJson)
+            poolNo = random.randrange(0, len(pokePool))
+            pokeNo = pokePool[poolNo]
     else:
       pokeNo = pokemon_number
     
@@ -135,6 +182,13 @@ class Pokemon(commands.Cog):
     image_url = pokemon["sprites"]["front_default"]
     
     pokemon_doc = db.pokemon.create_pokemon(pokeNo, name, image_url, str(new_message.id), catch_count, level, flees)
+    
+    #if alter spawned pokemon, reset altar_spawn flag
+    altar_state = db.game_state.get_altar_state()
+    if altar_state and altar_state.get("altar_spawn", False):
+      altar_state["altar_spawn"] = False
+      db.game_state.update_altar_state(altar_state)
+    
     db.game_state.set_last_pokemon_spawn({
       "last_pokemon_spawn_datetime": discord.utils.utcnow(),
       "pokemon": pokemon_doc

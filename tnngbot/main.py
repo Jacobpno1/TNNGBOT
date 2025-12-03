@@ -26,6 +26,7 @@ async def load_cogs():
   await client.load_extension("tnngbot.cogs.commands.pokedex")
   await client.load_extension("tnngbot.cogs.commands.fuse_pokemon")
   await client.load_extension("tnngbot.cogs.commands.trade_pokemon")
+  await client.load_extension("tnngbot.cogs.commands.sacrifice_pokemon")
   
   await client.load_extension("tnngbot.cogs.reactions.throw_pokeball")
   
