@@ -45,16 +45,20 @@ class Pokemon(commands.Cog):
     if last_spawn and last_spawn['last_pokemon_spawn_datetime']:
       last_spawn_time = last_spawn['last_pokemon_spawn_datetime']     
       current_time = discord.utils.utcnow()
+      # return if within one minute of last spawn      
       # ensure DB timestamp is timezone-aware before subtracting
       if getattr(last_spawn_time, "tzinfo", None) is None:
         last_spawn_time = last_spawn_time.replace(tzinfo=timezone.utc)
       # return if within one minute of last spawn
       if (current_time - last_spawn_time).total_seconds() < 60:        
         return                  
+      if (current_time - last_spawn_time).total_seconds() < 60:        
+        return      
       elapsed_minutes = (current_time - last_spawn_time).total_seconds() / 60
       max_minutes = int(os.environ['pokemonMaxMinutes'])    
-      
-      if not exponential_probability(int(elapsed_minutes), max_minutes, probability):        
+      probability = 1/int(os.environ['pokemonSpawnRate'])
+      max_probablity = float(os.environ['pokemonMaxProbablity']) 
+      if not exponential_probability(int(elapsed_minutes), max_minutes, probability, max_probability=max_probablity):        
         return
     # Fallback to random spawn if no last spawn time found or probability check fails
     elif not random.randrange(1, int(os.environ['pokemonSpawnRate'])) == 1:      
