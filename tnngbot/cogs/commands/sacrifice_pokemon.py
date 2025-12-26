@@ -27,7 +27,7 @@ class SacrificePokemon(commands.Cog):
 
   @app_commands.command(name="sacrifice", description="Sacrifice a pokemon on the altar! (The Pokemon will be lost.)")
   @app_commands.describe(
-    pokemon_number="Pokemon number (1-151)",
+    pokemon_number="Pokemon number (1-251)",
     pokemon_level="Pokemon level",    
     type="Specify the type if the pokemon has multiple types. (If not specified, the first type will be used.)"
   )

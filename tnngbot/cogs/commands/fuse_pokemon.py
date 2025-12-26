@@ -22,9 +22,9 @@ class PokemonFusion(commands.Cog):
 
   @app_commands.command(name="fuse", description="Fuse two of the same Pokemon to create a stronger version! (The fused Pokemon will be lost)")
   @app_commands.describe(
-    pokemon_number="Base pokemon number (1-151)",
+    pokemon_number="Base pokemon number (1-251)",
     base_pokemon_level="Base pokemon level",
-    # fused_pokemon_number="Fused pokemon number (1-151)",
+    # fused_pokemon_number="Fused pokemon number (1-251)",
     fused_pokemon_level="Fused pokemon level"
   )
   async def fuse_pokemon(

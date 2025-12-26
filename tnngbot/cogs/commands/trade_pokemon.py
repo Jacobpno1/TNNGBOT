@@ -180,9 +180,9 @@ class TradePokemon(commands.Cog):
   @app_commands.command(name="trade", description="Trade a Pokémon with another user")
   @app_commands.describe(
     user="User to trade with.",
-    my_pokemon_number="Your Pokémon number (1-151)",
+    my_pokemon_number="Your Pokémon number (1-251)",
     my_pokemon_level="Your Pokémon level",
-    for_pokemon_number="Their Pokémon number (1-151)",
+    for_pokemon_number="Their Pokémon number (1-251)",
     for_pokemon_level="Their Pokémon level",
   )
   async def trade_pokemon(

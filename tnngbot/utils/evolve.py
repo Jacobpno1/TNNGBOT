@@ -19,8 +19,8 @@ def get_next_evolution_number(pokemon_name: str, allow_trade: bool = False) -> i
   Returns 0 if:
     - There is no next evolution,
     - The evolution does not match the trade evolution filter,
-    - The next evolution's Pokédex number > 151,
-    - Or the Pokémon itself is not within the first 151.
+    - The next evolution's Pokédex number > 251,
+    - Or the Pokémon itself is not within the first 251.
 
   Parameters:
     pokemon_name (str): Pokémon name (e.g. "charmander").
@@ -34,7 +34,7 @@ def get_next_evolution_number(pokemon_name: str, allow_trade: bool = False) -> i
 
   # Step 2: Check current Pokémon's ID
   pokemon_id = species_data["id"]
-  if pokemon_id > 151:
+  if pokemon_id > 251:
     return 0
 
   # Step 3: Get evolution chain
@@ -80,7 +80,7 @@ def get_next_evolution_number(pokemon_name: str, allow_trade: bool = False) -> i
     evo_species_data = requests.get(evo_species_url).json()
 
     # Skip evolutions beyond Gen 1
-    if evo_species_data["id"] > 151:
+    if evo_species_data["id"] > 251:
       continue
 
     valid_evolutions.append(evo_species_data["id"])

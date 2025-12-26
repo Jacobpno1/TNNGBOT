@@ -23,7 +23,7 @@ class WhoHasPokemonCog(commands.Cog):
   @app_commands.describe(
     pokemon_name="Pokémon name (case-insensitive)",
     name_match_mode="Whether or not the specified Pokémon name is the exact name or only part of it [default: Exact]",
-    pokemon_number="Pokédex number (1-151)",
+    pokemon_number="Pokédex number (1-251)",
     sort_by="Choose how to sort the results",
     direction="Choose ascending or descending order",
   )
@@ -73,8 +73,8 @@ class WhoHasPokemonCog(commands.Cog):
       await interaction.response.send_message("Provide a Pokédex number or Pokémon name.", ephemeral=True)
       return
 
-    if pokemon_number is not None and (pokemon_number < 1 or pokemon_number > 151):
-      await interaction.response.send_message("Please provide a Pokédex number between 1 and 151.", ephemeral=True)
+    if pokemon_number is not None and (pokemon_number < 1 or pokemon_number > 251):
+      await interaction.response.send_message("Please provide a Pokédex number between 1 and 251.", ephemeral=True)
       return
     
     if pokemon_number is not None and name_match_mode is not None:

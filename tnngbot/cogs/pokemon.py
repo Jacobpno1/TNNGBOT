@@ -83,7 +83,7 @@ class Pokemon(commands.Cog):
 
   ### Pokemon Commands          
   @app_commands.command(name="pokemon", description="Summon a Pokemon you've caught!")
-  @app_commands.describe(pokemon_number="The number of the Pokemon you want to summon (1-151)", level="The level of the pokemon.")
+  @app_commands.describe(pokemon_number="The number of the Pokemon you want to summon (1-251)", level="The level of the pokemon.")
   async def pokemon(self, interaction: discord.Interaction, pokemon_number: str, level:int|None = None):
     if level:
       caught_pokemon = db.pokemon.get_pokemon_lvl( interaction.user, int(pokemon_number), level)
@@ -99,7 +99,7 @@ class Pokemon(commands.Cog):
       await interaction.response.send_message("You haven't caught that pokemon.", ephemeral=True) 
 
   @app_commands.command(name="spawn_pokemon", description="[Admin Only] Spawn a pokemon by number")
-  @app_commands.describe(pokemon_number="The number of the Pokemon you want to spawn (1-151)", catch_count="How many attempts before catching", level="Pokemon level", flees="Pokemon flees.")
+  @app_commands.describe(pokemon_number="The number of the Pokemon you want to spawn (1-251)", catch_count="How many attempts before catching", level="Pokemon level", flees="Pokemon flees.")
   async def spawn_pokemon(self, interaction: discord.Interaction, pokemon_number: int | None = None, catch_count:int|None = None, level:int = 1, flees:bool=False):  
     if not isinstance(interaction.user, discord.Member):
       await interaction.response.send_message("This command can only be used in a server.", ephemeral=True)
