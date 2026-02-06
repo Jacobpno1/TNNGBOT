@@ -59,7 +59,8 @@ class ThrowPokeball(commands.Cog):
     """
     # embed = discord.Embed(title=pokemon_doc.get("name", "Unknown").capitalize())
     # embed.set_thumbnail(url=pokemon_doc.get("image_url", ""))
-    embed = discord.Embed(title=f"A wild {pokemon_doc['name']} appears!")
+    shiny_emoji = "✨" if pokemon_doc.get('shiny', False) else ""
+    embed = discord.Embed(title=f"A wild {pokemon_doc['name']}{shiny_emoji} appears!")
     embed.set_thumbnail(url=pokemon_doc.get("image_url", ""))  
     # embed.set_footer(text=f"Lvl: {pokemon_doc.get('level', 1)}")
     embed.set_footer(text=f"Lvl: {pokemon_doc.get('level', 1)}     No: {pokemon_doc['number']}     Type: {get_type_emoji_str(pokemon_doc['name'])}")  
@@ -69,7 +70,8 @@ class ThrowPokeball(commands.Cog):
     for attempt_user_id in unique_attempts:
       user = self.bot.get_user(int(attempt_user_id))
       if user:
-        embed.add_field(name=f"Oh no {user.display_name}! {pokemon_doc['name'].capitalize()} broke free!", value="", inline=False)
+        shiny_emoji = "✨" if pokemon_doc.get('shiny', False) else ""
+        embed.add_field(name=f"Oh no {user.display_name}! {pokemon_doc['name'].capitalize()}{shiny_emoji} broke free!", value="", inline=False)
     # if pokemon_doc.get("caught", False):
     #   caught_by = pokemon_doc.get("caught_by", "Someone")
     #   embed.set_footer(text=f"#{pokemon_doc.get('poke_no','?')} - caught by {caught_by}")

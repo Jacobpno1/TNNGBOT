@@ -137,7 +137,8 @@ class PokedexCog(commands.Cog):
           # rows_local.append(f"◓  {p['number']:<5} {p['name'].capitalize():<15} {formatted_date} EST\n")
           # Shrink the table width for mobile users
           level = p['level'] if 'level' in p else 1
-          rows_local.append(f"{p['number']:<3} {p['name'].capitalize():<11} {level:<3} {formatted_date} ET\n")
+          shiny_marker = "*" if p.get('shiny', False) else ""
+          rows_local.append(f"{p['number']:<3} {(p['name'].capitalize() + shiny_marker):<11} {level:<3} {formatted_date} ET\n")
         return rows_local, totals_line
 
       # Initial rows

@@ -74,17 +74,35 @@ class PokemonFusion(commands.Cog):
     base_pokemon["level"] = old_base_level
     fused_pokemon["level"] = fused_pokemon.get("level", 1)
     base_pokemon["level"] += fused_pokemon["level"]
+    
+    # If either pokemon is shiny, make the result shiny
+    if base_pokemon.get("shiny", False) or fused_pokemon.get("shiny", False):
+      base_pokemon["shiny"] = True
+      # Update the image to the shiny sprite
+      r = requests.get(f"https://pokeapi.co/api/v2/pokemon/{base_pokemon['number']}")
+      pokemon_data = r.json()
+      base_pokemon["image_url"] = pokemon_data['sprites']['front_shiny']
 
     db.pokemon.update_pokemon(base_pokemon)
     db.pokemon.delete_pokemon(fused_pokemon)
+    
+    # Refresh base_pokemon from database to ensure all fields (including shiny) are properly persisted
+    base_pokemon = db.pokemon.get_pokemon_by_id(base_pokemon["_id"])
+    if base_pokemon is None:
+      await interaction.followup.send("❗ There was an error retrieving the updated pokemon.", ephemeral=True)
+      return
+    if "level" not in base_pokemon:
+      await interaction.followup.send("❗ There was an error with the pokemon level.", ephemeral=True)
+      return
 
+    shiny_emoji = "✨" if base_pokemon.get("shiny", False) else ""
     embed = discord.Embed(
-      title=f"{interaction.user.display_name} fused {base_pokemon['name'].capitalize()}!",
+      title=f"{interaction.user.display_name} fused {base_pokemon['name'].capitalize()}{shiny_emoji}!",
       color=discord.Color.blue()
     )
     embed.set_thumbnail(url=base_pokemon["image_url"])
     embed.add_field(
-      name=f"{base_pokemon['name'].capitalize()} grew to level {base_pokemon['level']}",
+      name=f"{base_pokemon['name'].capitalize()}{shiny_emoji} grew to level {base_pokemon['level']}",
       value="",
       inline=False
     )
