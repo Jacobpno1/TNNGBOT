@@ -83,15 +83,33 @@ class Pokemon(commands.Cog):
 
   ### Pokemon Commands          
   @app_commands.command(name="pokemon", description="Summon a Pokemon you've caught!")
-  @app_commands.describe(pokemon_number="The number of the Pokemon you want to summon (1-251)", level="The level of the pokemon.")
-  async def pokemon(self, interaction: discord.Interaction, pokemon_number: str, level:int|None = None):
-    if level:
-      caught_pokemon = db.pokemon.get_pokemon_lvl( interaction.user, int(pokemon_number), level)
+  @app_commands.describe(pokemon_number="The number of the Pokemon you want to summon (1-251)", level="The level of the pokemon.", shiny="Show only shiny pokemon.")
+  async def pokemon(self, interaction: discord.Interaction, pokemon_number: str, level:int|None = None, shiny:bool|None = None):
+    # Filter the database query by shiny status if specified
+    if shiny is True:
+      if level:
+        caught_pokemon = db.pokemon.get_pokemon_lvl(interaction.user, int(pokemon_number), level, shiny=True)
+      else:
+        caught_pokemon = db.pokemon.get_pokemon(interaction.user, int(pokemon_number), shiny=True)
+      
+      # If shiny was requested but not found, show error
+      if caught_pokemon is None:
+        await interaction.response.send_message(
+          f"❗ You don't have a shiny pokemon with number {pokemon_number}" + (f" at level {level}" if level else "") + ".",
+          ephemeral=True
+        )
+        return
     else:
-      caught_pokemon = db.pokemon.get_pokemon( interaction.user, int(pokemon_number))  
+      # Get any pokemon of that number/level regardless of shiny status
+      if level:
+        caught_pokemon = db.pokemon.get_pokemon_lvl(interaction.user, int(pokemon_number), level)
+      else:
+        caught_pokemon = db.pokemon.get_pokemon(interaction.user, int(pokemon_number))
+    
     level = 1 if caught_pokemon is None or 'level' not in caught_pokemon else caught_pokemon['level']
-    if caught_pokemon:      
-      embed = discord.Embed(title=f"I choose you... <:pokeball:1419845300742520964> {caught_pokemon['name'].capitalize()}!")  
+    if caught_pokemon:
+      shiny_emoji = "✨" if caught_pokemon.get('shiny', False) else ""
+      embed = discord.Embed(title=f"I choose you... <:pokeball:1419845300742520964> {caught_pokemon['name'].capitalize()}{shiny_emoji}!")  
       embed.set_thumbnail(url=caught_pokemon['image_url'])  
       embed.set_footer(text=f"Lvl: {level}     No: {caught_pokemon['number']}     Type: {get_type_emoji_str(caught_pokemon['name'])}")  
       await interaction.response.send_message(embed=embed)
@@ -99,21 +117,21 @@ class Pokemon(commands.Cog):
       await interaction.response.send_message("You haven't caught that pokemon.", ephemeral=True) 
 
   @app_commands.command(name="spawn_pokemon", description="[Admin Only] Spawn a pokemon by number")
-  @app_commands.describe(pokemon_number="The number of the Pokemon you want to spawn (1-251)", catch_count="How many attempts before catching", level="Pokemon level", flees="Pokemon flees.")
-  async def spawn_pokemon(self, interaction: discord.Interaction, pokemon_number: int | None = None, catch_count:int|None = None, level:int = 1, flees:bool=False):  
+  @app_commands.describe(pokemon_number="The number of the Pokemon you want to spawn (1-251)", catch_count="How many attempts before catching", level="Pokemon level", flees="Pokemon flees.", shiny="Make the pokemon shiny.")
+  async def spawn_pokemon(self, interaction: discord.Interaction, pokemon_number: int | None = None, catch_count:int|None = None, level:int = 1, flees:bool=False, shiny:bool=False):  
     if not isinstance(interaction.user, discord.Member):
       await interaction.response.send_message("This command can only be used in a server.", ephemeral=True)
       return
     if interaction.user is not None and interaction.user.guild_permissions.administrator:
       if pokemon_number is None:
-        await self.spawnPokemon(interaction, catch_count=catch_count, level=level, flees=flees)
+        await self.spawnPokemon(interaction, catch_count=catch_count, level=level, flees=flees, shiny=shiny)
       else:
-        await self.spawnPokemon(interaction, pokemon_number, catch_count=catch_count, level=level, flees=flees)
+        await self.spawnPokemon(interaction, pokemon_number, catch_count=catch_count, level=level, flees=flees, shiny=shiny)
       await interaction.response.send_message(f"Spawned pokemon number {pokemon_number}!", ephemeral=True) 
     else:
       await interaction.response.send_message("You do not have permission to use this command.", ephemeral=True)        
   
-  async def spawnPokemon(self, message, pokemon_number=None, catch_count=None, level: int | None =None, flees=None):  
+  async def spawnPokemon(self, message, pokemon_number=None, catch_count=None, level: int | None =None, flees=None, shiny: bool | None = None):  
     if pokemon_number is None:    
       fled_pokemon = db.game_state.retrieve_fled_pokemon()  
       if fled_pokemon:
@@ -172,16 +190,25 @@ class Pokemon(commands.Cog):
       
     r = requests.get("https://pokeapi.co/api/v2/pokemon/" + str(pokeNo)) 
     pokemon = r.json()
-    embed = discord.Embed(title=f"A wild {pokemon['name']} appears!")
-    embed.set_thumbnail(url=pokemon['sprites']['front_default'])  
+    
+    # Determine if pokemon is shiny (1 in 1000 chance, or manually set)
+    if shiny is not None:
+      is_shiny = shiny
+    else:
+      is_shiny = random.randint(1, 1000) == 1
+    sprite_url = pokemon['sprites']['front_shiny'] if is_shiny else pokemon['sprites']['front_default']
+    
+    shiny_emoji = "✨" if is_shiny else ""
+    embed = discord.Embed(title=f"A wild {pokemon['name']}{shiny_emoji} appears!")
+    embed.set_thumbnail(url=sprite_url)  
     embed.set_footer(text=f"Lvl: {level}     No: {pokeNo}     Type: {get_type_emoji_str(pokemon['name'])}")  
     channel = discord.utils.get(message.guild.channels, name="tall-grass")
     new_message = await channel.send(embed=embed)
    
     name = pokemon["name"]
-    image_url = pokemon["sprites"]["front_default"]
+    image_url = sprite_url
     
-    pokemon_doc = db.pokemon.create_pokemon(pokeNo, name, image_url, str(new_message.id), catch_count, level, flees)
+    pokemon_doc = db.pokemon.create_pokemon(pokeNo, name, image_url, str(new_message.id), catch_count, level, flees, shiny=is_shiny)
     
     #if alter spawned pokemon, reset altar_spawn flag
     altar_state = db.game_state.get_altar_state()

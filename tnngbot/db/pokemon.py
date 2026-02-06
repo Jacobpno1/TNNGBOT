@@ -11,7 +11,7 @@ MAX_RETRIES = 5
 RETRY_BACKOFF = 0.05  # seconds base
 
 class PokemonService(BaseService):
-  def create_pokemon(self, number: int, name: str, image_url: str, message_id: str, catch_count: int, level: int, flees: bool) -> PokemonDoc:
+  def create_pokemon(self, number: int, name: str, image_url: str, message_id: str, catch_count: int, level: int, flees: bool, shiny: bool = False) -> PokemonDoc:
     document: PokemonDoc = {
       "number": number,
       "name": name,
@@ -24,7 +24,8 @@ class PokemonService(BaseService):
       "caught_by": None,
       "caught_at": None,
       "created_at": datetime.now().isoformat(),   
-      "flees": flees,        
+      "flees": flees,
+      "shiny": shiny,        
       "_v": 0,
     }
     result = self.col.insert_one(document)
@@ -107,11 +108,14 @@ class PokemonService(BaseService):
     pokemon_list: List[PokemonDoc] = list(self.col.find({"caught_by": user.id}).sort(sort_by, sort_direction)) or []
     return pokemon_list
 
-  def get_pokemon(self, user: User | Member, number: int) -> PokemonDoc | None:
-    pokemon: PokemonDoc | None = self.col.find_one({"number": number, "caught_by": user.id})
+  def get_pokemon(self, user: User | Member, number: int, shiny: bool | None = None) -> PokemonDoc | None:
+    query = {"number": number, "caught_by": user.id}
+    if shiny is not None:
+      query["shiny"] = shiny
+    pokemon: PokemonDoc | None = self.col.find_one(query)
     return pokemon if pokemon and pokemon["caught"] else None
   
-  def get_pokemon_lvl(self, user: Union[User, Member], number: int, level: int, exclude_id=None) -> Optional[PokemonDoc]:
+  def get_pokemon_lvl(self, user: Union[User, Member], number: int, level: int, exclude_id=None, shiny: bool | None = None) -> Optional[PokemonDoc]:
     # If level == 1, allow matches where level == 1 or level doesn't exist
     if level == 1:
       level_query = {
@@ -131,6 +135,9 @@ class PokemonService(BaseService):
 
     if exclude_id is not None:
       query["_id"] = {"$ne": ObjectId(exclude_id)}
+    
+    if shiny is not None:
+      query["shiny"] = shiny
 
     pokemon: Optional[PokemonDoc] = self.col.find_one(query)
 

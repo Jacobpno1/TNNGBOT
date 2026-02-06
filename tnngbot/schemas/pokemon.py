@@ -20,6 +20,7 @@ class PokemonDoc(TypedDict):
     previous_owners: NotRequired[List[str]]
     flees: NotRequired[bool]
     fled: NotRequired[bool]
+    shiny: NotRequired[bool]
     _v: int
     
 class PokemonCatchResult(TypedDict):

@@ -25,8 +25,11 @@ class EvolveConfirmView(View):
     # Get new Pokémon info from PokeAPI
     evo_data = requests.get(f"https://pokeapi.co/api/v2/pokemon/{self.evolve_no}").json()
     new_name = evo_data["name"].capitalize()
-    embed_image = evo_data["sprites"]["other"]["official-artwork"]["front_default"]
-    new_image = evo_data["sprites"]["front_default"]
+    
+    # Use shiny sprite if the pokemon is shiny, otherwise use regular sprite
+    is_shiny = self.base_pokemon.get("shiny", False)
+    embed_image = evo_data["sprites"]["other"]["official-artwork"]["front_shiny"] if is_shiny else evo_data["sprites"]["other"]["official-artwork"]["front_default"]
+    new_image = evo_data["sprites"]["front_shiny"] if is_shiny else evo_data["sprites"]["front_default"]
 
     # Update the Pokémon in the database
     old_name = self.base_pokemon["name"]
@@ -36,9 +39,10 @@ class EvolveConfirmView(View):
     self.db.pokemon.update_pokemon(self.base_pokemon)
 
     # Update the embed
+    shiny_emoji = "✨" if is_shiny else ""
     embed = discord.Embed(
       title=f"✨ {self.interaction.user.display_name}'s Pokémon evolved!",
-      description=f"**{old_name.capitalize()} evolved into {new_name}!**",
+      description=f"**{old_name.capitalize()} evolved into {new_name}{shiny_emoji}!**",
       color=discord.Color.gold()
     )
     embed.set_image(url=embed_image)
