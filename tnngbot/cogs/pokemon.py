@@ -8,9 +8,12 @@ from tnngbot.db.manager import MongoDBManager
 from tnngbot.utils.exponential_probability import exponential_probability
 import requests
 import json
+
+POKE_NUMBER_CAP = int(os.environ['pokeNumberCap'])
 from datetime import timezone
 
 from tnngbot.utils.type import get_type_emoji_str
+from tnngbot.utils.pokemon_pool import get_tier1_pokemon
 
 # Database setup
 MONGO_DBNAME = os.environ['MONGO_DBNAME']
@@ -83,7 +86,7 @@ class Pokemon(commands.Cog):
 
   ### Pokemon Commands          
   @app_commands.command(name="pokemon", description="Summon a Pokemon you've caught!")
-  @app_commands.describe(pokemon_number="The number of the Pokemon you want to summon (1-251)", level="The level of the pokemon.", shiny="Show only shiny pokemon.")
+  @app_commands.describe(pokemon_number=f"The number of the Pokemon you want to summon (1-{POKE_NUMBER_CAP})", level="The level of the pokemon.", shiny="Show only shiny pokemon.")
   async def pokemon(self, interaction: discord.Interaction, pokemon_number: str, level:int|None = None, shiny:bool|None = None):
     # Filter the database query by shiny status if specified
     if shiny is True:
@@ -117,7 +120,7 @@ class Pokemon(commands.Cog):
       await interaction.response.send_message("You haven't caught that pokemon.", ephemeral=True) 
 
   @app_commands.command(name="spawn_pokemon", description="[Admin Only] Spawn a pokemon by number")
-  @app_commands.describe(pokemon_number="The number of the Pokemon you want to spawn (1-251)", catch_count="How many attempts before catching", level="Pokemon level", flees="Pokemon flees.", shiny="Make the pokemon shiny.")
+  @app_commands.describe(pokemon_number=f"The number of the Pokemon you want to spawn (1-{POKE_NUMBER_CAP})", catch_count="How many attempts before catching", level="Pokemon level", flees="Pokemon flees.", shiny="Make the pokemon shiny.")
   async def spawn_pokemon(self, interaction: discord.Interaction, pokemon_number: int | None = None, catch_count:int|None = None, level:int = 1, flees:bool=False, shiny:bool=False):  
     if not isinstance(interaction.user, discord.Member):
       await interaction.response.send_message("This command can only be used in a server.", ephemeral=True)
@@ -165,17 +168,39 @@ class Pokemon(commands.Cog):
             possible_pokemon:list[int] = pokemon_type_tiers.get(selected_type, {}).get(tier, [])              
             pokeNo = possible_pokemon[random.randrange(0, len(possible_pokemon))]
           else:    
-            pokePool: list[int] = []
-            with open('tnngbot/static/pokemonPool.json', 'r') as pokePoolJson:
-              pokePool = json.load(pokePoolJson)
-            poolNo = random.randrange(0, len(pokePool))
-            pokeNo = pokePool[poolNo]
-        else:    
-            pokePool: list[int] = []
-            with open('tnngbot/static/pokemonPool.json', 'r') as pokePoolJson:
-              pokePool = json.load(pokePoolJson)
-            poolNo = random.randrange(0, len(pokePool))
-            pokeNo = pokePool[poolNo]
+            possible = get_tier1_pokemon(POKE_NUMBER_CAP)
+            if not possible:
+              err_msg = "❗ No tier1 pokemon available within pokeNumberCap."
+              print(err_msg)
+              if isinstance(message, discord.Interaction):
+                try:
+                  await message.response.send_message(err_msg, ephemeral=True)
+                except Exception:
+                  pass
+              elif isinstance(message, discord.Message):
+                try:
+                  await message.channel.send(err_msg)
+                except Exception:
+                  pass
+              return
+            pokeNo = possible[random.randrange(0, len(possible))]
+        else:
+            possible = get_tier1_pokemon(POKE_NUMBER_CAP)
+            if not possible:
+              err_msg = "❗ No tier1 pokemon available within pokeNumberCap."
+              print(err_msg)
+              if isinstance(message, discord.Interaction):
+                try:
+                  await message.response.send_message(err_msg, ephemeral=True)
+                except Exception:
+                  pass
+              elif isinstance(message, discord.Message):
+                try:
+                  await message.channel.send(err_msg)
+                except Exception:
+                  pass
+              return
+            pokeNo = possible[random.randrange(0, len(possible))]
     else:
       pokeNo = pokemon_number
     

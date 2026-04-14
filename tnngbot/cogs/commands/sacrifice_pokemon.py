@@ -16,6 +16,8 @@ from zoneinfo import ZoneInfo
 import pytz as _pytz
 import logging
 
+POKE_NUMBER_CAP = int(os.environ['pokeNumberCap'])
+
 # Database setup
 MONGO_DBNAME = os.environ['MONGO_DBNAME']
 MONGO_URI = os.environ['MONGO_URI']
@@ -27,7 +29,7 @@ class SacrificePokemon(commands.Cog):
 
   @app_commands.command(name="sacrifice", description="Sacrifice a pokemon on the altar! (The Pokemon will be lost.)")
   @app_commands.describe(
-    pokemon_number="Pokemon number (1-251)",
+    pokemon_number=f"Pokemon number (1-{POKE_NUMBER_CAP})",
     pokemon_level="Pokemon level",    
     type="Specify the type if the pokemon has multiple types. (If not specified, the first type will be used.)"
   )
