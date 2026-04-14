@@ -8,6 +8,8 @@ import pytz
 from discord import app_commands
 from discord.ext import commands
 
+POKE_NUMBER_CAP = int(os.environ['pokeNumberCap'])
+
 from tnngbot.db.manager import MongoDBManager
 
 MONGO_DBNAME = os.environ["MONGO_DBNAME"]
@@ -23,7 +25,7 @@ class WhoHasPokemonCog(commands.Cog):
   @app_commands.describe(
     pokemon_name="Pokémon name (case-insensitive)",
     name_match_mode="Whether or not the specified Pokémon name is the exact name or only part of it [default: Exact]",
-    pokemon_number="Pokédex number (1-251)",
+    pokemon_number=f"Pokédex number (1-{POKE_NUMBER_CAP})",
     sort_by="Choose how to sort the results",
     direction="Choose ascending or descending order",
   )
@@ -73,8 +75,8 @@ class WhoHasPokemonCog(commands.Cog):
       await interaction.response.send_message("Provide a Pokédex number or Pokémon name.", ephemeral=True)
       return
 
-    if pokemon_number is not None and (pokemon_number < 1 or pokemon_number > 251):
-      await interaction.response.send_message("Please provide a Pokédex number between 1 and 251.", ephemeral=True)
+    if pokemon_number is not None and (pokemon_number < 1 or pokemon_number > POKE_NUMBER_CAP):
+      await interaction.response.send_message(f"Please provide a Pokédex number between 1 and {POKE_NUMBER_CAP}.", ephemeral=True)
       return
     
     if pokemon_number is not None and name_match_mode is not None:

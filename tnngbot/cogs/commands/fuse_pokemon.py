@@ -11,6 +11,8 @@ from utils.evolve import can_pokemon_evolve, get_next_evolution_number
 from classes.evolve_view import EvolveConfirmView
 import os
 
+POKE_NUMBER_CAP = int(os.environ['pokeNumberCap'])
+
 # Database setup
 MONGO_DBNAME = os.environ['MONGO_DBNAME']
 MONGO_URI = os.environ['MONGO_URI']
@@ -22,9 +24,9 @@ class PokemonFusion(commands.Cog):
 
   @app_commands.command(name="fuse", description="Fuse two of the same Pokemon to create a stronger version! (The fused Pokemon will be lost)")
   @app_commands.describe(
-    pokemon_number="Base pokemon number (1-251)",
+    pokemon_number=f"Base pokemon number (1-{POKE_NUMBER_CAP})",
     base_pokemon_level="Base pokemon level",
-    # fused_pokemon_number="Fused pokemon number (1-251)",
+    # fused_pokemon_number=f"Fused pokemon number (1-{POKE_NUMBER_CAP})",
     fused_pokemon_level="Fused pokemon level"
   )
   async def fuse_pokemon(

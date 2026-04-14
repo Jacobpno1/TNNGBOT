@@ -2,6 +2,8 @@ import random
 import requests
 import os
 
+POKE_NUMBER_CAP = int(os.environ['pokeNumberCap'])
+
 
 
 def can_pokemon_evolve(old_level: int, new_level: int) -> bool:
@@ -19,8 +21,8 @@ def get_next_evolution_number(pokemon_name: str, allow_trade: bool = False) -> i
   Returns 0 if:
     - There is no next evolution,
     - The evolution does not match the trade evolution filter,
-    - The next evolution's Pokédex number > 251,
-    - Or the Pokémon itself is not within the first 251.
+    - The next evolution's Pokédex number > {POKE_NUMBER_CAP},
+    - Or the Pokémon itself is not within the first {POKE_NUMBER_CAP}.
 
   Parameters:
     pokemon_name (str): Pokémon name (e.g. "charmander").
@@ -34,7 +36,7 @@ def get_next_evolution_number(pokemon_name: str, allow_trade: bool = False) -> i
 
   # Step 2: Check current Pokémon's ID
   pokemon_id = species_data["id"]
-  if pokemon_id > 251:
+  if pokemon_id > POKE_NUMBER_CAP:
     return 0
 
   # Step 3: Get evolution chain
@@ -62,17 +64,12 @@ def get_next_evolution_number(pokemon_name: str, allow_trade: bool = False) -> i
 
   # Step 6: Filter valid evolutions
   valid_evolutions = []
+  trade_evolutions = []
   for evo in current_chain["evolves_to"]:
     evo_details = evo["evolution_details"]
 
     # Detect if this is a trade evolution
     is_trade = any(detail["trigger"]["name"] == "trade" for detail in evo_details)
-
-    # Respect allow_trade flag
-    if allow_trade and not is_trade:
-      continue
-    if not allow_trade and is_trade:
-      continue
 
     # Get next species info
     evo_species_name = evo["species"]["name"]
@@ -80,14 +77,22 @@ def get_next_evolution_number(pokemon_name: str, allow_trade: bool = False) -> i
     evo_species_data = requests.get(evo_species_url).json()
 
     # Skip evolutions beyond Gen 1
-    if evo_species_data["id"] > 251:
+    if evo_species_data["id"] > POKE_NUMBER_CAP:
       continue
 
-    valid_evolutions.append(evo_species_data["id"])
+    if is_trade:
+      trade_evolutions.append(evo_species_data["id"])
+    else:
+      valid_evolutions.append(evo_species_data["id"])
 
-  # Step 7: If no valid evolutions, return 0
-  if not valid_evolutions:
-    return 0
-
-  # Step 8: Choose one randomly
-  return random.choice(valid_evolutions)
+  # Step 7: Choose based on allow_trade
+  if allow_trade:
+    if trade_evolutions:
+      return random.choice(trade_evolutions)
+    else:
+      return 0
+  else:
+    if valid_evolutions:
+      return random.choice(valid_evolutions)
+    else:
+      return 0

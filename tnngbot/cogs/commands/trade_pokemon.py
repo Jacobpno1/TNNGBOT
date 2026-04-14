@@ -10,6 +10,8 @@ from tnngbot.db.manager import MongoDBManager
 from tnngbot.schemas.pokemon import PokemonDoc
 from tnngbot.utils.evolve import can_pokemon_evolve, get_next_evolution_number
 
+POKE_NUMBER_CAP = int(os.environ['pokeNumberCap'])
+
 # Database setup
 MONGO_DBNAME = os.environ["MONGO_DBNAME"]
 MONGO_URI = os.environ["MONGO_URI"]
@@ -180,9 +182,9 @@ class TradePokemon(commands.Cog):
   @app_commands.command(name="trade", description="Trade a Pokémon with another user")
   @app_commands.describe(
     user="User to trade with.",
-    my_pokemon_number="Your Pokémon number (1-251)",
+    my_pokemon_number=f"Your Pokémon number (1-{POKE_NUMBER_CAP})",
     my_pokemon_level="Your Pokémon level",
-    for_pokemon_number="Their Pokémon number (1-251)",
+    for_pokemon_number=f"Their Pokémon number (1-{POKE_NUMBER_CAP})",
     for_pokemon_level="Their Pokémon level",
   )
   async def trade_pokemon(
